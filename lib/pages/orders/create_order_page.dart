@@ -1,35 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../components/create_order/order_form.dart';
 import '../../components/create_order/order_table.dart';
 import '../../components/common/floating_nav_bar.dart';
 import '../../models/api_order.dart';
-import '../../services/api_orders_service.dart';
+import '../../providers/orders/api_orders_provider.dart';
 
-class CreateOrderPage extends StatefulWidget {
+class CreateOrderPage extends ConsumerStatefulWidget {
   const CreateOrderPage({super.key});
 
   @override
-  State<CreateOrderPage> createState() => _CreateOrderPageState();
+  ConsumerState<CreateOrderPage> createState() => _CreateOrderPageState();
 }
 
-class _CreateOrderPageState extends State<CreateOrderPage> {
+class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
   final _searchController = TextEditingController();
-  final _apiOrdersService = ApiOrdersService();
-  
   bool _isSearching = false;
-  bool _isLoading = false;
   bool _isTableView = true;
-  String? _error;
   Map<String, dynamic>? _orderDetails;
-  List<ApiOrder> _orders = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchOrders();
-  }
 
   @override
   void dispose() {
@@ -37,27 +27,6 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
     super.dispose();
   }
 
-  Future<void> _fetchOrders() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final response = await _apiOrdersService.getOrders(status: 'pending');
-      setState(() {
-        _orders = response.orders;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
-
-  // Mock function to simulate WooCommerce order search
   Future<void> _searchOrder() async {
     if (_searchController.text.isEmpty) return;
 
@@ -100,35 +69,54 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
 
   Future<void> _handleOrderSubmit(Map<String, dynamic> data) async {
     try {
+      final mutations = ref.read(apiOrderMutationsProvider);
       if (_orderDetails != null && _orderDetails!['id'] != null) {
-        await _apiOrdersService.updateOrder(_orderDetails!['id'], data);
+        await mutations.updateOrder(_orderDetails!['id'], data);
       } else {
-        await _apiOrdersService.createOrder(data);
+        await mutations.createOrder(data);
       }
       setState(() {
         _isTableView = true;
         _orderDetails = null;
       });
-      await _fetchOrders();
+      // Refresh orders list
+      ref.invalidate(apiOrdersProvider);
     } catch (e) {
-      // TODO: Show error message
-      print('Error submitting order: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 
   Future<void> _handleOrderDelete(String orderId) async {
     try {
-      await _apiOrdersService.deleteOrder(orderId);
-      await _fetchOrders();
+      final mutations = ref.read(apiOrderMutationsProvider);
+      await mutations.deleteOrder(orderId);
+      // Refresh orders list
+      ref.invalidate(apiOrdersProvider);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Order deleted successfully'),
+        ),
+      );
     } catch (e) {
-      // TODO: Show error message
-      print('Error deleting order: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ordersAsyncValue = ref.watch(apiOrdersProvider(const ApiOrdersFilter()));
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -384,43 +372,76 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
 
                     // Content
                     Expanded(
-                      child: _isLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : _error != null
-                              ? Center(child: Text('Error: $_error'))
-                              : _isTableView
-                                  ? SingleChildScrollView(
-                                      padding: const EdgeInsets.all(16),
-                                      child: OrderTable(
-                                        orders: _orders,
-                                        onEdit: (order) {
-                                          setState(() {
-                                            _orderDetails = order.toJson();
-                                            _isTableView = false;
-                                          });
-                                        },
-                                        onDelete: _handleOrderDelete,
-                                      ),
-                                    )
-                                  : SingleChildScrollView(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                                        children: [
-                                          if (_orderDetails != null)
-                                            OrderForm(
-                                              initialData: _orderDetails,
-                                              onSubmit: _handleOrderSubmit,
-                                              onCancel: () {
-                                                setState(() {
-                                                  _orderDetails = null;
-                                                  _isTableView = true;
-                                                });
-                                              },
-                                            ),
-                                        ],
-                                      ),
-                                    ),
+                      child: ordersAsyncValue.when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (error, stack) => Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 48,
+                                  color: theme.colorScheme.error,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Error loading orders',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: theme.colorScheme.error,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  error.toString(),
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.error.withOpacity(0.8),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                FilledButton.tonal(
+                                  onPressed: () => ref.invalidate(apiOrdersProvider),
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        data: (response) => _isTableView
+                          ? SingleChildScrollView(
+                              padding: const EdgeInsets.all(16),
+                              child: OrderTable(
+                                orders: response.orders,
+                                onEdit: (order) {
+                                  setState(() {
+                                    _orderDetails = order.toJson();
+                                    _isTableView = false;
+                                  });
+                                },
+                                onDelete: _handleOrderDelete,
+                              ),
+                            )
+                          : SingleChildScrollView(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  OrderForm(
+                                    initialData: _orderDetails,
+                                    onSubmit: _handleOrderSubmit,
+                                    onCancel: () {
+                                      setState(() {
+                                        _orderDetails = null;
+                                        _isTableView = true;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                      ),
                     ),
                   ],
                 ),

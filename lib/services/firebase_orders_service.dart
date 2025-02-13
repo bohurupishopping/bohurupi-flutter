@@ -7,6 +7,17 @@ class FirebaseOrdersService {
   final EnvironmentService _env = EnvironmentService.instance;
   final String _endpoint = '/firebase';
 
+  // Hardcoded admin credentials (previously in environment_service.dart)
+  static const String _adminEmail = 'admin@bohurupi.com';
+  static const String _adminPassword = '33558822';
+
+  // Computed admin auth header based on hardcoded details
+  String get _adminAuth =>
+      'Basic ${base64.encode(utf8.encode('$_adminEmail:$_adminPassword'))}';
+
+  // Hardcoded API Key (previously in environment_service.dart)
+  static const String _apiKey = 'x84kjjfkdjk';
+
   String get _apiBaseUrl => '${_env.baseUrl}$_endpoint';
 
   // Fetch completed orders with pagination and search
@@ -22,14 +33,22 @@ class FirebaseOrdersService {
         if (search != null && search.isNotEmpty) 'search': search,
       };
 
-      final uri = Uri.parse('$_apiBaseUrl/orders/completed').replace(queryParameters: queryParams);
+      final uri = Uri.parse('$_apiBaseUrl/orders/completed')
+          .replace(queryParameters: queryParams);
       
+      // Build headers with hardcoded admin auth
+      final headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': _apiKey, // Using hardcoded API key
+        'Authorization': _adminAuth,
+      };
+
       if (kDebugMode) {
         print('GET Request: $uri');
-        print('Headers: ${_env.headers}');
+        print('Headers: $headers');
       }
       
-      final response = await http.get(uri, headers: _env.headers);
+      final response = await http.get(uri, headers: headers);
 
       if (kDebugMode) {
         print('Response Status: ${response.statusCode}');
@@ -66,14 +85,22 @@ class FirebaseOrdersService {
         if (search != null && search.isNotEmpty) 'search': search,
       };
 
-      final uri = Uri.parse('$_apiBaseUrl/orders/pending').replace(queryParameters: queryParams);
+      final uri = Uri.parse('$_apiBaseUrl/orders/pending')
+          .replace(queryParameters: queryParams);
       
+      // Build headers with hardcoded admin auth
+      final headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': _apiKey, // Using hardcoded API key
+        'Authorization': _adminAuth,
+      };
+
       if (kDebugMode) {
         print('GET Request: $uri');
-        print('Headers: ${_env.headers}');
+        print('Headers: $headers');
       }
       
-      final response = await http.get(uri, headers: _env.headers);
+      final response = await http.get(uri, headers: headers);
 
       if (kDebugMode) {
         print('Response Status: ${response.statusCode}');

@@ -14,12 +14,6 @@ final apiOrdersServiceProvider = Provider<ApiOrdersService>((ref) {
   return ApiOrdersService();
 });
 
-/// Loading state provider
-final apiOrdersLoadingProvider = StateProvider<bool>((ref) => false);
-
-/// Error state provider
-final apiOrdersErrorProvider = StateProvider<String?>((ref) => null);
-
 /// Orders filter state provider
 final apiOrdersFilterProvider = StateProvider<ApiOrdersFilter>((ref) {
   return const ApiOrdersFilter();
@@ -28,11 +22,6 @@ final apiOrdersFilterProvider = StateProvider<ApiOrdersFilter>((ref) {
 /// Orders response provider
 final apiOrdersProvider = FutureProvider.family<ApiOrdersResponse, ApiOrdersFilter>((ref, filter) async {
   final service = ref.watch(apiOrdersServiceProvider);
-  
-  // Update loading state
-  ref.read(apiOrdersLoadingProvider.notifier).state = true;
-  // Clear previous error
-  ref.read(apiOrdersErrorProvider.notifier).state = null;
   
   try {
     final response = await service.getOrders(
@@ -43,12 +32,7 @@ final apiOrdersProvider = FutureProvider.family<ApiOrdersResponse, ApiOrdersFilt
     );
     return response;
   } catch (e) {
-    // Update error state
-    ref.read(apiOrdersErrorProvider.notifier).state = e.toString();
-    rethrow;
-  } finally {
-    // Reset loading state
-    ref.read(apiOrdersLoadingProvider.notifier).state = false;
+    throw e.toString();
   }
 });
 
@@ -122,54 +106,30 @@ class ApiOrderMutations {
 
   /// Create a new order
   Future<ApiOrder> createOrder(Map<String, dynamic> orderData) async {
-    ref.read(apiOrdersLoadingProvider.notifier).state = true;
-    ref.read(apiOrdersErrorProvider.notifier).state = null;
-
     try {
       final order = await service.createOrder(orderData);
-      // Invalidate the orders cache to trigger a refresh
-      ref.invalidate(apiOrdersProvider);
       return order;
     } catch (e) {
-      ref.read(apiOrdersErrorProvider.notifier).state = e.toString();
-      rethrow;
-    } finally {
-      ref.read(apiOrdersLoadingProvider.notifier).state = false;
+      throw e.toString();
     }
   }
 
   /// Update an existing order
   Future<ApiOrder> updateOrder(String id, Map<String, dynamic> orderData) async {
-    ref.read(apiOrdersLoadingProvider.notifier).state = true;
-    ref.read(apiOrdersErrorProvider.notifier).state = null;
-
     try {
       final order = await service.updateOrder(id, orderData);
-      // Invalidate the orders cache to trigger a refresh
-      ref.invalidate(apiOrdersProvider);
       return order;
     } catch (e) {
-      ref.read(apiOrdersErrorProvider.notifier).state = e.toString();
-      rethrow;
-    } finally {
-      ref.read(apiOrdersLoadingProvider.notifier).state = false;
+      throw e.toString();
     }
   }
 
   /// Delete an order
   Future<void> deleteOrder(String id) async {
-    ref.read(apiOrdersLoadingProvider.notifier).state = true;
-    ref.read(apiOrdersErrorProvider.notifier).state = null;
-
     try {
       await service.deleteOrder(id);
-      // Invalidate the orders cache to trigger a refresh
-      ref.invalidate(apiOrdersProvider);
     } catch (e) {
-      ref.read(apiOrdersErrorProvider.notifier).state = e.toString();
-      rethrow;
-    } finally {
-      ref.read(apiOrdersLoadingProvider.notifier).state = false;
+      throw e.toString();
     }
   }
 
