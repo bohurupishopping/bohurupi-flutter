@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../components/orders/firebase_order_table.dart';
-import '../../components/floating_nav_bar.dart';
+import '../../components/firebase_order/firebase_order_table.dart';
+import '../../components/common/floating_nav_bar.dart';
 import '../../models/firebase_order.dart';
 import '../../providers/orders/firebase_orders_provider.dart';
 

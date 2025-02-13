@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../../components/floating_nav_bar.dart';
+import '../../components/common/floating_nav_bar.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});

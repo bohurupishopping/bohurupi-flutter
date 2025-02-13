@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../components/orders/order_form.dart';
-import '../../components/orders/order_table.dart';
-import '../../components/floating_nav_bar.dart';
+import '../../components/create_order/order_form.dart';
+import '../../components/create_order/order_table.dart';
+import '../../components/common/floating_nav_bar.dart';
 import '../../models/api_order.dart';
 import '../../services/api_orders_service.dart';
 

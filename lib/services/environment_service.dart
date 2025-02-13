@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 /// Service responsible for managing environment configuration
 class EnvironmentService {
   // Private constructor
-  EnvironmentService._();
+  EnvironmentService._() {
+    _initialize();
+  }
   
   // Singleton instance
   static final EnvironmentService instance = EnvironmentService._();
@@ -19,6 +21,20 @@ class EnvironmentService {
   // Admin credentials
   static const String adminEmail = 'admin@bohurupi.com';
   static const String adminPassword = '33558822';
+
+  // Authentication token cache
+  String? _cachedAuthToken;
+
+  void _initialize() {
+    // Generate auth token at initialization
+    _cachedAuthToken = _getBasicAuth();
+    
+    if (kDebugMode) {
+      print('Environment Service Initialized');
+      print('Development Mode: $isDevelopment');
+      print('Base URL: $baseUrl');
+    }
+  }
 
   /// Determines if the app is running in development mode
   bool get isDevelopment {
@@ -46,7 +62,7 @@ class EnvironmentService {
   Map<String, String> get headers => {
     'Content-Type': 'application/json',
     'x-api-key': apiKey,
-    'Authorization': 'Basic ${_getBasicAuth()}',
+    'Authorization': 'Basic ${_cachedAuthToken ?? _getBasicAuth()}',
   };
 
   /// Gets the API headers without authentication
@@ -57,8 +73,21 @@ class EnvironmentService {
 
   /// Generates Basic Auth string
   String _getBasicAuth() {
+    if (_cachedAuthToken != null) return _cachedAuthToken!;
+    
     final auth = '$adminEmail:$adminPassword';
     final bytes = utf8.encode(auth);
-    return base64.encode(bytes);
+    _cachedAuthToken = base64.encode(bytes);
+    
+    if (kDebugMode) {
+      print('Generated new auth token');
+    }
+    
+    return _cachedAuthToken!;
+  }
+
+  /// Clears the cached auth token
+  void clearAuthToken() {
+    _cachedAuthToken = null;
   }
 } 

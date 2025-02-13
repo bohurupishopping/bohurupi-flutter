@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../components/orders/woo_order_details_dialog.dart';
+import '../../components/woo_orders/woo_order_details_dialog.dart';
 import '../../providers/orders/woo_orders_provider.dart';
-import '../../components/floating_nav_bar.dart';
+import '../../components/common/floating_nav_bar.dart';
 
 class WooOrdersPage extends HookConsumerWidget {
   const WooOrdersPage({super.key});
