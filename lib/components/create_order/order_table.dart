@@ -2,10 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../models/api_order.dart';
 import '../woo_orders/order_tracking_dialog.dart';
-import 'product_card.dart';
 
 class OrderTable extends StatelessWidget {
   final List<ApiOrder> orders;
@@ -275,7 +273,7 @@ class _OrderCard extends StatelessWidget {
           // Action Buttons
           if (!readOnly)
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
@@ -286,11 +284,11 @@ class _OrderCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if (order.trackingId != null)
+                  if (order.trackingId != null) ...[
                     _buildActionButton(
                       context,
                       icon: Iconsax.truck,
-                      label: 'Track Order',
+                      label: 'Track',
                       onPressed: () {
                         showDialog(
                           context: context,
@@ -304,8 +302,8 @@ class _OrderCard extends StatelessWidget {
                         );
                       },
                     ),
-                  if (order.trackingId != null)
                     const SizedBox(width: 8),
+                  ],
                   _buildActionButton(
                     context,
                     icon: Iconsax.edit,
@@ -374,65 +372,79 @@ class _OrderCard extends StatelessWidget {
     required VoidCallback onPressed,
   }) {
     final theme = Theme.of(context);
-    return FilledButton.tonal(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        visualDensity: VisualDensity.compact,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16),
-          const SizedBox(width: 4),
-          Text(label),
-        ],
+    return SizedBox(
+      height: 32,
+      child: FilledButton.tonal(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+          visualDensity: VisualDensity.compact,
+          textStyle: theme.textTheme.labelSmall,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildDeleteButton(BuildContext context) {
     final theme = Theme.of(context);
-    return FilledButton.tonal(
-      onPressed: () {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Delete Order'),
-            content: Text('Are you sure you want to delete order #${order.orderId}?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  onDelete?.call(order.id!);
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.error,
-                  foregroundColor: theme.colorScheme.onError,
+    return SizedBox(
+      height: 32,
+      child: FilledButton.tonal(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Delete Order'),
+              content: Text('Are you sure you want to delete order #${order.orderId}?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
                 ),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-        );
-      },
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        visualDensity: VisualDensity.compact,
-        backgroundColor: theme.colorScheme.error.withOpacity(0.1),
-        foregroundColor: theme.colorScheme.error,
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Iconsax.trash, size: 16),
-          SizedBox(width: 4),
-          Text('Delete'),
-        ],
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    onDelete?.call(order.id!);
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: theme.colorScheme.error,
+                    foregroundColor: theme.colorScheme.onError,
+                  ),
+                  child: const Text('Delete'),
+                ),
+              ],
+            ),
+          );
+        },
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+          visualDensity: VisualDensity.compact,
+          textStyle: theme.textTheme.labelSmall,
+          backgroundColor: theme.colorScheme.error.withOpacity(0.1),
+          foregroundColor: theme.colorScheme.error,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Iconsax.trash, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              'Delete',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }

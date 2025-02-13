@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import '../../providers/orders/woocommerce_provider.dart';
+import '../../models/api_order.dart';
 import 'product_card.dart';
 
-class OrderForm extends ConsumerStatefulWidget {
+class OrderForm extends HookConsumerWidget {
   final bool isEditing;
   final Map<String, dynamic>? initialData;
   final Function(Map<String, dynamic> data) onSubmit;
@@ -18,158 +21,107 @@ class OrderForm extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<OrderForm> createState() => _OrderFormState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final formKey = useMemoized(() => GlobalKey<FormState>(), const []);
+    final mounted = useIsMounted();
+    
+    // Form controllers
+    final orderIdController = useTextEditingController(text: initialData?['orderId']?.toString() ?? '');
+    final customerNameController = useTextEditingController(text: initialData?['customerName']?.toString() ?? '');
+    final trackingIdController = useTextEditingController(text: initialData?['trackingId']?.toString() ?? '');
+    final designUrlController = useTextEditingController(text: initialData?['designUrl']?.toString() ?? '');
+    final searchController = useTextEditingController();
+    
+    // Form state
+    final isLoading = useState(false);
+    final orderStatus = useState(initialData?['orderstatus']?.toString() ?? 'Prepaid');
+    final status = useState(initialData?['status']?.toString() ?? 'pending');
+    final products = useState<List<Map<String, dynamic>>>(
+      List<Map<String, dynamic>>.from(initialData?['products'] as List<dynamic>? ?? [])
+    );
+    final recentOrders = useState<List<String>>([]);
+    final isSearchingOrder = useState(false);
 
-class _OrderFormState extends ConsumerState<OrderForm> {
-  final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-  
-  late final TextEditingController _orderIdController;
-  late final TextEditingController _customerNameController;
-  late final TextEditingController _trackingIdController;
-  late final TextEditingController _designUrlController;
-  late final TextEditingController _searchController;
-  
-  String _orderStatus = 'Prepaid';
-  String _status = 'pending';
-  List<Map<String, dynamic>> _products = [];
-  List<String> _recentOrders = [];
-  bool _isSearchingOrder = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _orderIdController = TextEditingController(text: widget.initialData?['orderId']?.toString() ?? '');
-    _customerNameController = TextEditingController(text: widget.initialData?['customerName']?.toString() ?? '');
-    _trackingIdController = TextEditingController(text: widget.initialData?['trackingId']?.toString() ?? '');
-    _designUrlController = TextEditingController(text: widget.initialData?['designUrl']?.toString() ?? '');
-    _searchController = TextEditingController();
-    _orderStatus = widget.initialData?['orderstatus']?.toString() ?? 'Prepaid';
-    _status = widget.initialData?['status']?.toString() ?? 'pending';
-    _products = List<Map<String, dynamic>>.from(widget.initialData?['products'] as List<dynamic>? ?? []);
-    _fetchRecentOrders();
-  }
-
-  @override
-  void dispose() {
-    _orderIdController.dispose();
-    _customerNameController.dispose();
-    _trackingIdController.dispose();
-    _designUrlController.dispose();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _fetchRecentOrders() async {
-    // TODO: Implement fetching recent orders from WooCommerce
-    setState(() {
-      _recentOrders = ['12345', '12346', '12347', '12348', '12349'];
-    });
-  }
-
-  Future<void> _searchOrder(String orderId) async {
-    if (orderId.isEmpty) return;
-
-    setState(() {
-      _isSearchingOrder = true;
-    });
-
-    try {
-      // TODO: Implement actual WooCommerce order search
-      await Future.delayed(const Duration(seconds: 1));
-      
-      // Mock response
-      final orderData = {
-        'orderId': orderId,
-        'customerName': 'John Doe',
-        'orderstatus': 'Prepaid',
-        'status': 'pending',
-        'products': [
-          {
-            'details': 'Test Product 1',
-            'image': 'https://picsum.photos/200',
-            'sku': 'TST001',
-            'sale_price': 999,
-            'product_page_url': 'https://example.com',
-            'product_category': 'Category 1 | Category 2',
-            'colour': 'Red',
-            'size': 'XL',
-            'qty': 1,
-          },
-        ],
-      };
-
-      setState(() {
-        _orderIdController.text = orderData['orderId']?.toString() ?? '';
-        _customerNameController.text = orderData['customerName']?.toString() ?? '';
-        _orderStatus = orderData['orderstatus']?.toString() ?? 'Prepaid';
-        _status = orderData['status']?.toString() ?? 'pending';
-        _products = List<Map<String, dynamic>>.from(orderData['products'] as List<dynamic>? ?? []);
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Found ${_products.length} products in this order'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
-        );
+    // Effects
+    useEffect(() {
+      // Fetch recent orders on mount
+      if (mounted()) {
+        _fetchRecentOrders(recentOrders);
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSearchingOrder = false;
-        });
-      }
-    }
-  }
+      return null;
+    }, const []);
 
-  Future<void> _handleSubmit() async {
-    if (_formKey.currentState?.validate() ?? false) {
-      setState(() {
-        _isLoading = true;
-      });
+    // Search WooCommerce order
+    Future<void> handleOrderSearch() async {
+      final orderId = searchController.text;
+      if (orderId.isEmpty) return;
+
+      isSearchingOrder.value = true;
       try {
-        final formData = {
-          'orderId': _orderIdController.text,
-          'customerName': _customerNameController.text,
-          'trackingId': _trackingIdController.text,
-          'designUrl': _designUrlController.text,
-          'orderstatus': _orderStatus,
-          'status': _status,
-          'products': _products,
-        };
-        await widget.onSubmit(formData);
+        final orderData = await ref.read(wooOrderProvider(orderId).future);
+        
+        // Only update state if widget is still mounted
+        if (mounted()) {
+          // Update form with order data
+          orderIdController.text = orderData.orderId;
+          customerNameController.text = orderData.customerName;
+          orderStatus.value = orderData.orderstatus;
+          status.value = orderData.status;
+          products.value = orderData.products.map((p) => p.toJson()).toList();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Found ${orderData.products.length} products in this order'),
+              backgroundColor: theme.colorScheme.primary,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted()) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: theme.colorScheme.error,
+            ),
+          );
+        }
       } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
+        if (mounted()) {
+          isSearchingOrder.value = false;
         }
       }
     }
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    // Handle form submission
+    Future<void> handleSubmit() async {
+      if (formKey.currentState?.validate() ?? false) {
+        isLoading.value = true;
+        try {
+          final formData = {
+            'orderId': orderIdController.text,
+            'customerName': customerNameController.text,
+            'trackingId': trackingIdController.text,
+            'designUrl': designUrlController.text,
+            'orderstatus': orderStatus.value,
+            'status': status.value,
+            'products': products.value,
+          };
+          await onSubmit(formData);
+        } finally {
+          if (mounted()) {
+            isLoading.value = false;
+          }
+        }
+      }
+    }
 
     return Form(
-      key: _formKey,
+      key: formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!widget.isEditing) ...[
+          if (!isEditing) ...[
             // Search Section
             Card(
               margin: EdgeInsets.zero,
@@ -189,18 +141,18 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                       children: [
                         Expanded(
                           child: TextFormField(
-                            controller: _searchController,
+                            controller: searchController,
                             decoration: const InputDecoration(
                               labelText: 'WooCommerce Order ID',
                               prefixIcon: Icon(Iconsax.search_normal),
                             ),
-                            onFieldSubmitted: _searchOrder,
+                            onFieldSubmitted: (_) => handleOrderSearch(),
                           ),
                         ),
                         const SizedBox(width: 16),
                         FilledButton.icon(
-                          onPressed: _isSearchingOrder ? null : () => _searchOrder(_searchController.text),
-                          icon: _isSearchingOrder 
+                          onPressed: isSearchingOrder.value ? null : handleOrderSearch,
+                          icon: isSearchingOrder.value 
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
@@ -210,11 +162,11 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                                 ),
                               )
                             : const Icon(Iconsax.search_normal),
-                          label: Text(_isSearchingOrder ? 'Searching...' : 'Search'),
+                          label: Text(isSearchingOrder.value ? 'Searching...' : 'Search'),
                         ),
                       ],
                     ),
-                    if (_recentOrders.isNotEmpty) ...[
+                    if (recentOrders.value.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       Text(
                         'Recent Orders:',
@@ -224,9 +176,12 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: _recentOrders.map((orderId) => ActionChip(
+                        children: recentOrders.value.map((orderId) => ActionChip(
                           label: Text('#$orderId'),
-                          onPressed: () => _searchOrder(orderId),
+                          onPressed: () {
+                            searchController.text = orderId;
+                            handleOrderSearch();
+                          },
                         )).toList(),
                       ),
                     ],
@@ -256,7 +211,7 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                     children: [
                       Expanded(
                         child: TextFormField(
-                          controller: _orderIdController,
+                          controller: orderIdController,
                           decoration: const InputDecoration(
                             labelText: 'Order ID',
                             prefixIcon: Icon(Iconsax.document),
@@ -273,7 +228,7 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: TextFormField(
-                          controller: _customerNameController,
+                          controller: customerNameController,
                           decoration: const InputDecoration(
                             labelText: 'Customer Name',
                             prefixIcon: Icon(Iconsax.user),
@@ -314,11 +269,10 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       if (constraints.maxWidth < 600) {
-                        // Stack vertically on smaller screens
                         return Column(
                           children: [
                             DropdownButtonFormField<String>(
-                              value: _orderStatus,
+                              value: orderStatus.value,
                               decoration: const InputDecoration(
                                 labelText: 'Payment Status',
                                 prefixIcon: Icon(Iconsax.money),
@@ -328,16 +282,14 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                                 DropdownMenuItem(value: 'COD', child: Text('COD')),
                               ],
                               onChanged: (value) {
-                                if (value != null) {
-                                  setState(() {
-                                    _orderStatus = value;
-                                  });
+                                if (value != null && mounted()) {
+                                  orderStatus.value = value;
                                 }
                               },
                             ),
                             const SizedBox(height: 16),
                             DropdownButtonFormField<String>(
-                              value: _status,
+                              value: status.value,
                               decoration: const InputDecoration(
                                 labelText: 'Order Status',
                                 prefixIcon: Icon(Iconsax.status),
@@ -347,24 +299,21 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                                 DropdownMenuItem(value: 'completed', child: Text('Completed')),
                               ],
                               onChanged: (value) {
-                                if (value != null) {
-                                  setState(() {
-                                    _status = value;
-                                  });
+                                if (value != null && mounted()) {
+                                  status.value = value;
                                 }
                               },
                             ),
                           ],
                         );
                       }
-                      // Side by side on larger screens
                       return IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                value: _orderStatus,
+                                value: orderStatus.value,
                                 isExpanded: true,
                                 decoration: const InputDecoration(
                                   labelText: 'Payment Status',
@@ -375,10 +324,8 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                                   DropdownMenuItem(value: 'COD', child: Text('COD')),
                                 ],
                                 onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      _orderStatus = value;
-                                    });
+                                  if (value != null && mounted()) {
+                                    orderStatus.value = value;
                                   }
                                 },
                               ),
@@ -386,7 +333,7 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                value: _status,
+                                value: status.value,
                                 isExpanded: true,
                                 decoration: const InputDecoration(
                                   labelText: 'Order Status',
@@ -397,10 +344,8 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                                   DropdownMenuItem(value: 'completed', child: Text('Completed')),
                                 ],
                                 onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      _status = value;
-                                    });
+                                  if (value != null && mounted()) {
+                                    status.value = value;
                                   }
                                 },
                               ),
@@ -433,7 +378,7 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    controller: _designUrlController,
+                    controller: designUrlController,
                     decoration: const InputDecoration(
                       labelText: 'Design URL',
                       prefixIcon: Icon(Iconsax.link),
@@ -441,7 +386,7 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    controller: _trackingIdController,
+                    controller: trackingIdController,
                     decoration: const InputDecoration(
                       labelText: 'Tracking/AWB Number',
                       prefixIcon: Icon(Iconsax.truck),
@@ -452,7 +397,7 @@ class _OrderFormState extends ConsumerState<OrderForm> {
             ),
           ),
 
-          if (_products.isNotEmpty) ...[
+          if (products.value.isNotEmpty) ...[
             const SizedBox(height: 16),
             Card(
               margin: EdgeInsets.zero,
@@ -471,7 +416,7 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                           ),
                         ),
                         Text(
-                          '${_products.length} items',
+                          '${products.value.length} items',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -482,10 +427,10 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                     ListView.separated(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _products.length,
+                      itemCount: products.value.length,
                       separatorBuilder: (context, index) => const SizedBox(height: 8),
                       itemBuilder: (context, index) => ProductCard(
-                        product: _products[index],
+                        product: products.value[index],
                       ),
                     ),
                   ],
@@ -501,13 +446,13 @@ class _OrderFormState extends ConsumerState<OrderForm> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               OutlinedButton(
-                onPressed: widget.onCancel,
+                onPressed: onCancel,
                 child: const Text('Cancel'),
               ),
               const SizedBox(width: 16),
               FilledButton(
-                onPressed: _isLoading ? null : _handleSubmit,
-                child: _isLoading
+                onPressed: isLoading.value ? null : handleSubmit,
+                child: isLoading.value
                     ? const SizedBox(
                         width: 20,
                         height: 20,
@@ -515,7 +460,7 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                           strokeWidth: 2,
                         ),
                       )
-                    : Text(widget.isEditing ? 'Update Order' : 'Create Order'),
+                    : Text(isEditing ? 'Update Order' : 'Create Order'),
               ),
             ],
           ),
@@ -523,4 +468,9 @@ class _OrderFormState extends ConsumerState<OrderForm> {
       ),
     );
   }
+}
+
+Future<void> _fetchRecentOrders(ValueNotifier<List<String>> recentOrders) async {
+  // TODO: Implement fetching recent orders from WooCommerce
+  recentOrders.value = ['12345', '12346', '12347', '12348', '12349'];
 } 

@@ -13,6 +13,7 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isSmallScreen = MediaQuery.of(context).size.width < 360;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -27,13 +28,13 @@ class ProductCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
                   product['image'],
-                  width: 80,
-                  height: 80,
+                  width: isSmallScreen ? 60 : 80,
+                  height: isSmallScreen ? 60 : 80,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
-                      width: 80,
-                      height: 80,
+                      width: isSmallScreen ? 60 : 80,
+                      height: isSmallScreen ? 60 : 80,
                       color: theme.colorScheme.surfaceVariant,
                       child: const Icon(Iconsax.image),
                     );
@@ -41,7 +42,7 @@ class ProductCard extends StatelessWidget {
                 ),
               ),
 
-            const SizedBox(width: 12),
+            SizedBox(width: isSmallScreen ? 8 : 12),
 
             // Product Details
             Expanded(
@@ -57,10 +58,14 @@ class ProductCard extends StatelessWidget {
                           product['details'] ?? '',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w600,
+                            fontSize: isSmallScreen ? 12 : 14,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (product['product_page_url'] != null)
+                      if (product['product_page_url'] != null && 
+                          product['product_page_url'].toString().isNotEmpty)
                         IconButton(
                           onPressed: () async {
                             final url = Uri.parse(product['product_page_url']);
@@ -68,12 +73,12 @@ class ProductCard extends StatelessWidget {
                               await launchUrl(url);
                             }
                           },
-                          icon: const Icon(Iconsax.export, size: 18),
+                          icon: const Icon(Iconsax.export, size: 16),
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
+                            minWidth: 24,
+                            minHeight: 24,
                           ),
                         ),
                     ],
@@ -82,28 +87,30 @@ class ProductCard extends StatelessWidget {
                   const SizedBox(height: 4),
 
                   // SKU and Price
-                  Row(
+                  Wrap(
+                    spacing: 8,
                     children: [
                       Text(
                         'SKU: ${product['sku'] ?? ''}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: isSmallScreen ? 10 : 12,
                         ),
                       ),
-                      const SizedBox(width: 8),
                       Container(
                         width: 4,
                         height: 4,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(width: 8),
                       Text(
                         '₹${product['sale_price']?.toString() ?? '0'}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: isSmallScreen ? 10 : 12,
                         ),
                       ),
                     ],
@@ -113,34 +120,43 @@ class ProductCard extends StatelessWidget {
 
                   // Product Attributes
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: isSmallScreen ? 4 : 8,
+                    runSpacing: 4,
                     children: [
-                      if (product['colour'] != null)
+                      if (product['colour'] != null && 
+                          product['colour'].toString().isNotEmpty)
                         _AttributeChip(
                           label: product['colour'],
                           icon: Iconsax.color_swatch,
+                          isSmallScreen: isSmallScreen,
                         ),
-                      if (product['size'] != null)
+                      if (product['size'] != null && 
+                          product['size'].toString().isNotEmpty)
                         _AttributeChip(
                           label: product['size'],
                           icon: Iconsax.ruler,
+                          isSmallScreen: isSmallScreen,
                         ),
                       _AttributeChip(
                         label: 'Qty: ${product['qty']?.toString() ?? '1'}',
                         icon: Iconsax.box,
+                        isSmallScreen: isSmallScreen,
                       ),
                     ],
                   ),
 
-                  if (product['product_category'] != null) ...[
+                  if (product['product_category'] != null && 
+                      product['product_category'].toString().isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
                       children: (product['product_category'] as String)
                           .split('|')
-                          .map((category) => _CategoryChip(label: category.trim()))
+                          .map((category) => _CategoryChip(
+                            label: category.trim(),
+                            isSmallScreen: isSmallScreen,
+                          ))
                           .toList(),
                     ),
                   ],
@@ -157,17 +173,22 @@ class ProductCard extends StatelessWidget {
 class _AttributeChip extends StatelessWidget {
   final String label;
   final IconData icon;
+  final bool isSmallScreen;
 
   const _AttributeChip({
     required this.label,
     required this.icon,
+    this.isSmallScreen = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 6 : 8,
+        vertical: isSmallScreen ? 2 : 4,
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
         borderRadius: BorderRadius.circular(6),
@@ -177,14 +198,15 @@ class _AttributeChip extends StatelessWidget {
         children: [
           Icon(
             icon,
-            size: 14,
+            size: isSmallScreen ? 12 : 14,
             color: theme.colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: isSmallScreen ? 2 : 4),
           Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
+              fontSize: isSmallScreen ? 10 : 12,
             ),
           ),
         ],
@@ -195,16 +217,21 @@ class _AttributeChip extends StatelessWidget {
 
 class _CategoryChip extends StatelessWidget {
   final String label;
+  final bool isSmallScreen;
 
   const _CategoryChip({
     required this.label,
+    this.isSmallScreen = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 6 : 8,
+        vertical: isSmallScreen ? 2 : 4,
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.primary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(6),
@@ -213,6 +240,7 @@ class _CategoryChip extends StatelessWidget {
         label,
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.primary,
+          fontSize: isSmallScreen ? 10 : 12,
         ),
       ),
     );
