@@ -3,7 +3,6 @@ import 'package:iconsax/iconsax.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import '../../providers/orders/woocommerce_provider.dart';
-import '../../models/api_order.dart';
 import 'product_card.dart';
 
 class OrderForm extends HookConsumerWidget {
@@ -69,106 +68,93 @@ class OrderForm extends HookConsumerWidget {
       formKey, isLoading, controllers, orderStatus, status, products, onSubmit, mounted
     ), [formKey, controllers, orderStatus.value, status.value, products.value, onSubmit, mounted]);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(_kBorderRadius),
-        border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(0.1),
+    return Dialog(
+      insetPadding: EdgeInsets.all(isSmallScreen ? 16 : 32),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: isSmallScreen ? mediaQuery.size.width : 800,
+          maxHeight: mediaQuery.size.height * 0.9,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.shadow.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+        child: Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(_kBorderRadius),
           ),
-        ],
-      ),
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Form Header
-            _buildFormHeader(theme, isSmallScreen, isEditing),
-            
-            // Form Content
-            Padding(
-              padding: EdgeInsets.all(isSmallScreen ? _kSmallSpacing : _kSpacing),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!isEditing) ...[
-                    _SearchSection(
-                      searchController: controllers['search']!,
-                      onSearch: handleOrderSearch,
-                      isSearching: isSearchingOrder.value,
-                      recentOrders: recentOrders.value,
-                      isSmallScreen: isSmallScreen,
+          child: Column(
+            children: [
+              // Enhanced Header with Actions
+              _buildFormHeader(theme, isSmallScreen, isEditing, isLoading.value, handleSubmit, onCancel),
+              
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(isSmallScreen ? _kSmallSpacing : _kSpacing),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (!isEditing) ...[
+                          _SearchSection(
+                            searchController: controllers['search']!,
+                            onSearch: handleOrderSearch,
+                            isSearching: isSearchingOrder.value,
+                            recentOrders: recentOrders.value,
+                            isSmallScreen: isSmallScreen,
+                          ),
+                          SizedBox(height: isSmallScreen ? _kSmallSpacing : _kSpacing),
+                        ],
+                        _BasicDetailsSection(
+                          orderIdController: controllers['orderId']!,
+                          customerNameController: controllers['customerName']!,
+                          isSmallScreen: isSmallScreen,
+                        ),
+                        SizedBox(height: isSmallScreen ? _kSmallSpacing : _kSpacing),
+                        _StatusSection(
+                          orderStatus: orderStatus,
+                          status: status,
+                          isSmallScreen: isSmallScreen,
+                        ),
+                        SizedBox(height: isSmallScreen ? _kSmallSpacing : _kSpacing),
+                        _AdditionalDetailsSection(
+                          designUrlController: controllers['designUrl']!,
+                          trackingIdController: controllers['trackingId']!,
+                          isSmallScreen: isSmallScreen,
+                        ),
+                        if (products.value.isNotEmpty) ...[
+                          SizedBox(height: isSmallScreen ? _kSmallSpacing : _kSpacing),
+                          _ProductsSection(
+                            products: products.value,
+                            isSmallScreen: isSmallScreen,
+                          ),
+                        ],
+                      ],
                     ),
-                    SizedBox(height: isSmallScreen ? _kSmallSpacing : _kSpacing),
-                  ],
-                  _BasicDetailsSection(
-                    orderIdController: controllers['orderId']!,
-                    customerNameController: controllers['customerName']!,
-                    isSmallScreen: isSmallScreen,
                   ),
-                  SizedBox(height: isSmallScreen ? _kSmallSpacing : _kSpacing),
-                  _StatusSection(
-                    orderStatus: orderStatus,
-                    status: status,
-                    isSmallScreen: isSmallScreen,
-                  ),
-                  SizedBox(height: isSmallScreen ? _kSmallSpacing : _kSpacing),
-                  _AdditionalDetailsSection(
-                    designUrlController: controllers['designUrl']!,
-                    trackingIdController: controllers['trackingId']!,
-                    isSmallScreen: isSmallScreen,
-                  ),
-                  if (products.value.isNotEmpty) ...[
-                    SizedBox(height: isSmallScreen ? _kSmallSpacing : _kSpacing),
-                    _ProductsSection(
-                      products: products.value,
-                      isSmallScreen: isSmallScreen,
-                    ),
-                  ],
-                  SizedBox(height: isSmallScreen ? _kSmallSpacing : _kSpacing),
-                  _ActionButtons(
-                    isLoading: isLoading.value,
-                    isEditing: isEditing,
-                    onSubmit: handleSubmit,
-                    onCancel: onCancel,
-                    isSmallScreen: isSmallScreen,
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildFormHeader(ThemeData theme, bool isSmallScreen, bool isEditing) {
+  Widget _buildFormHeader(
+    ThemeData theme,
+    bool isSmallScreen,
+    bool isEditing,
+    bool isLoading,
+    VoidCallback onSubmit,
+    VoidCallback onCancel,
+  ) {
     return Container(
       padding: EdgeInsets.all(isSmallScreen ? _kSmallSpacing : _kSpacing),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(_kBorderRadius),
-        ),
         border: Border(
           bottom: BorderSide(
             color: theme.colorScheme.outline.withOpacity(0.1),
           ),
-        ),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.primary.withOpacity(0.05),
-            theme.colorScheme.surface,
-          ],
         ),
       ),
       child: Row(
@@ -186,12 +172,32 @@ class OrderForm extends HookConsumerWidget {
             ),
           ),
           SizedBox(width: isSmallScreen ? 8 : 12),
-          Text(
-            isEditing ? 'Edit Order' : 'Create New Order',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.primary,
+          Expanded(
+            child: Text(
+              isEditing ? 'Edit Order' : 'Create New Order',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
             ),
+          ),
+          OutlinedButton(
+            onPressed: onCancel,
+            child: const Text('Cancel'),
+          ),
+          SizedBox(width: isSmallScreen ? 8 : 12),
+          FilledButton(
+            onPressed: isLoading ? null : onSubmit,
+            child: isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(isEditing ? 'Update' : 'Create'),
           ),
         ],
       ),
@@ -688,42 +694,6 @@ class _ProductsSection extends StatelessWidget {
           ),
         ],
     ),
-  );
-}
-}
-
-class _ActionButtons extends StatelessWidget {
-  final bool isLoading;
-  final bool isEditing;
-  final VoidCallback onSubmit;
-  final VoidCallback onCancel;
-  final bool isSmallScreen;
-
-  const _ActionButtons({
-    required this.isLoading,
-    required this.isEditing,
-    required this.onSubmit,
-    required this.onCancel,
-    required this.isSmallScreen,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.end,
-    children: [
-      OutlinedButton(
-        onPressed: onCancel,
-        child: const Text('Cancel'),
-      ),
-        const SizedBox(width: OrderForm._kSpacing),
-      FilledButton(
-          onPressed: isLoading ? null : onSubmit,
-        child: isLoading
-              ? const _LoadingIndicator()
-            : Text(isEditing ? 'Update Order' : 'Create Order'),
-      ),
-    ],
   );
 }
 } 

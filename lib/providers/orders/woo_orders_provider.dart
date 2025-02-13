@@ -17,6 +17,7 @@ class WooOrdersState {
   final int currentPage;
   final int totalPages;
   final String? error;
+  final int perPage;
 
   const WooOrdersState({
     this.orders = const [],
@@ -28,6 +29,7 @@ class WooOrdersState {
     this.currentPage = 1,
     this.totalPages = 1,
     this.error,
+    this.perPage = 50,
   });
 
   WooOrdersState copyWith({
@@ -40,6 +42,7 @@ class WooOrdersState {
     int? currentPage,
     int? totalPages,
     String? error,
+    int? perPage,
   }) {
     return WooOrdersState(
       orders: orders ?? this.orders,
@@ -51,6 +54,7 @@ class WooOrdersState {
       currentPage: currentPage ?? this.currentPage,
       totalPages: totalPages ?? this.totalPages,
       error: error,
+      perPage: perPage ?? this.perPage,
     );
   }
 }
@@ -66,6 +70,7 @@ class WooOrdersNotifier extends StateNotifier<WooOrdersState> {
 
       final result = await _service.getOrders(
         page: state.currentPage,
+        perPage: state.perPage,
         search: state.searchQuery,
         status: state.statusFilter == 'all' ? null : state.statusFilter,
       );
@@ -142,6 +147,14 @@ class WooOrdersNotifier extends StateNotifier<WooOrdersState> {
       selectedOrder: null,
       isDialogOpen: false,
     );
+  }
+
+  void setPerPage(int perPage) {
+    state = state.copyWith(
+      perPage: perPage,
+      currentPage: 1, // Reset to first page when changing items per page
+    );
+    fetchOrders();
   }
 }
 

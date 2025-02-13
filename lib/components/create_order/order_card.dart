@@ -3,7 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../models/firebase_order.dart';
-import '../orders/firebase_order_details_dialog.dart';
+import '../firebase_order/firebase_order_details_dialog.dart';
 import '../orders/order_tracking_dialog.dart';
 
 class OrderCard extends StatefulWidget {

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../../components/woo_orders/woo_order_details_dialog.dart';
 import '../../providers/orders/woo_orders_provider.dart';
 import '../../components/common/floating_nav_bar.dart';
+import '../../components/woo_orders/woo_order_table.dart';
 
 // Cache time provider for WooOrders
 final wooOrdersCacheTimeProvider = StateProvider<DateTime?>((ref) => null);
@@ -248,6 +249,8 @@ class WooOrdersPage extends HookConsumerWidget {
                 ),
               ),
               const Spacer(),
+              _buildPerPageDropdown(context, theme, state, isSmallScreen),
+              SizedBox(width: isSmallScreen ? 6 : 8),
               Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: isSmallScreen ? 6 : 8,
@@ -320,6 +323,55 @@ class WooOrdersPage extends HookConsumerWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPerPageDropdown(
+    BuildContext context,
+    ThemeData theme,
+    dynamic state,
+    bool isSmallScreen,
+  ) {
+    return Container(
+      height: isSmallScreen ? 24 : 28,
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 4 : 6,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.1),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: state.perPage,
+          isDense: true,
+          borderRadius: BorderRadius.circular(8),
+          items: [50, 100, 200].map((int value) {
+            return DropdownMenuItem<int>(
+              value: value,
+              child: Text(
+                '$value',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontSize: isSmallScreen ? 10 : 12,
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: (int? newValue) {
+            if (newValue != null) {
+              ProviderScope.containerOf(context).read(wooOrdersProvider.notifier).setPerPage(newValue);
+            }
+          },
+          icon: Icon(
+            Iconsax.arrow_down_1,
+            size: isSmallScreen ? 12 : 14,
+            color: theme.colorScheme.onSurface.withOpacity(0.5),
+          ),
+        ),
       ),
     );
   }
@@ -501,258 +553,17 @@ class WooOrdersPage extends HookConsumerWidget {
     bool isSmallScreen,
     WidgetRef ref,
   ) {
-    if (state.isLoading) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Loading orders...',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (state.orders.isEmpty) {
-      return Center(
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          margin: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: theme.colorScheme.outline.withOpacity(0.1),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FaIcon(
-                FontAwesomeIcons.boxOpen,
-                size: 48,
-                color: theme.colorScheme.primary.withOpacity(0.5),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No Orders Found',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Try adjusting your search or filters',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: EdgeInsets.all(isSmallScreen ? 8 : 16),
-      itemCount: state.orders.length,
-      itemBuilder: (context, index) {
-        final order = state.orders[index];
-        final statusColor = getStatusColor(order.status);
-        
-        return _buildOrderCard(
-          context,
-          theme,
-          order,
-          statusColor,
-          isSmallScreen,
-          ref,
-        );
+    return WooOrderTable(
+      orders: state.orders,
+      isLoading: state.isLoading,
+      isSmallScreen: isSmallScreen,
+      onOrderSelect: (orderJson) {
+        ref.read(wooOrdersProvider.notifier).selectOrder(orderJson);
       },
-    );
-  }
-
-  Widget _buildOrderCard(
-    BuildContext context,
-    ThemeData theme,
-    dynamic order,
-    Color statusColor,
-    bool isSmallScreen,
-    WidgetRef ref,
-  ) {
-    return Card(
-      margin: EdgeInsets.only(bottom: isSmallScreen ? 6 : 8),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.colorScheme.outline.withOpacity(0.1),
-        ),
-      ),
-      child: InkWell(
-        onTap: () {
-          ref.read(wooOrdersProvider.notifier).selectOrder(order.toJson());
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: FaIcon(
-                      FontAwesomeIcons.boxOpen,
-                      size: isSmallScreen ? 14 : 16,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  SizedBox(width: isSmallScreen ? 8 : 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Order #${order.number}',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: isSmallScreen ? 12 : 14,
-                          ),
-                        ),
-                        SizedBox(height: isSmallScreen ? 2 : 4),
-                        Text(
-                          DateFormat('MMM d, y').format(
-                            DateTime.parse(order.dateCreated),
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
-                            fontSize: isSmallScreen ? 10 : 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _buildStatusBadge(theme, order.status, statusColor, isSmallScreen),
-                ],
-              ),
-              SizedBox(height: isSmallScreen ? 8 : 12),
-              Container(
-                padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: theme.colorScheme.outline.withOpacity(0.1),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          FaIcon(
-                            FontAwesomeIcons.user,
-                            size: isSmallScreen ? 12 : 14,
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
-                          ),
-                          SizedBox(width: isSmallScreen ? 6 : 8),
-                          Expanded(
-                            child: Text(
-                              '${order.billing.firstName} ${order.billing.lastName}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.8),
-                                fontSize: isSmallScreen ? 12 : 14,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isSmallScreen ? 6 : 8,
-                        vertical: isSmallScreen ? 3 : 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${order.currency} ${order.total}',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.primary,
-                          fontSize: isSmallScreen ? 12 : 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(
-    ThemeData theme,
-    String status,
-    Color color,
-    bool isSmallScreen,
-  ) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 6 : 8,
-        vertical: isSmallScreen ? 3 : 4,
-      ),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: isSmallScreen ? 4 : 6,
-            height: isSmallScreen ? 4 : 6,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
-          ),
-          SizedBox(width: isSmallScreen ? 4 : 6),
-          Text(
-            status.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-              fontSize: isSmallScreen ? 9 : 11,
-            ),
-          ),
-        ],
-      ),
+      onRefresh: () async {
+        await ref.read(wooOrdersProvider.notifier).fetchOrders();
+        ref.read(wooOrdersCacheTimeProvider.notifier).state = DateTime.now();
+      },
     );
   }
 } 

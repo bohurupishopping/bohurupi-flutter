@@ -5,7 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../models/firebase_order.dart';
 import 'firebase_order_details_dialog.dart';
-import '../woo_orders/order_tracking_dialog.dart';
+import '../orders/order_tracking_dialog.dart';
 
 class FirebaseOrderTable extends StatelessWidget {
   final List<FirebaseOrder> orders;

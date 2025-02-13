@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../models/api_order.dart';
-import '../woo_orders/order_tracking_dialog.dart';
+import '../orders/order_tracking_dialog.dart';
 
 class OrderTable extends StatelessWidget {
   final List<ApiOrder> orders;
@@ -47,22 +47,22 @@ class OrderTable extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        return ListView.separated(
-          shrinkWrap: true,
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: orders.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final order = orders[index];
-            return _OrderCard(
-              order: order,
-              onEdit: onEdit,
-              onDelete: onDelete,
-              onStatusChange: onStatusChange,
-              readOnly: readOnly,
-              isSmallScreen: isSmallScreen,
-            );
-          },
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (int index = 0; index < orders.length; index++) ...[
+              _OrderCard(
+                order: orders[index],
+                onEdit: onEdit,
+                onDelete: onDelete,
+                onStatusChange: onStatusChange,
+                readOnly: readOnly,
+                isSmallScreen: isSmallScreen,
+              ),
+              if (index < orders.length - 1) 
+                const SizedBox(height: 8),
+            ],
+          ],
         );
       },
     );
@@ -274,18 +274,17 @@ class _OrderCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: order.products.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final product = order.products[index];
-              return _OrderProductCard(
-                product: product,
-                isSmallScreen: isSmallScreen,
-              );
-            },
+          Column(
+            children: [
+              for (int index = 0; index < order.products.length; index++) ...[
+                _OrderProductCard(
+                  product: order.products[index],
+                  isSmallScreen: isSmallScreen,
+                ),
+                if (index < order.products.length - 1)
+                  const SizedBox(height: 8),
+              ],
+            ],
           ),
         ],
       ),

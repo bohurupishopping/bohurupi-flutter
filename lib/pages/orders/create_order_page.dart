@@ -144,22 +144,29 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> with Automati
                           ? RefreshIndicator(
                               key: _refreshKey,
                               onRefresh: _handleRefresh,
-                              child: SingleChildScrollView(
+                              child: CustomScrollView(
                                 physics: const AlwaysScrollableScrollPhysics(),
-                                padding: EdgeInsets.all(isSmallScreen ? 8 : 16),
-                                child: OrderTable(
-                                  orders: response.orders,
-                                  onEdit: (order) {
-                                    setState(() {
-                                      _orderDetails = order.toJson();
-                                      _isTableView = false;
-                                    });
-                                  },
-                                  onDelete: _handleOrderDelete,
-                                ),
+                                slivers: [
+                                  SliverPadding(
+                                    padding: EdgeInsets.all(isSmallScreen ? 8 : 16),
+                                    sliver: SliverToBoxAdapter(
+                                      child: OrderTable(
+                                        orders: response.orders,
+                                        onEdit: (order) {
+                                          setState(() {
+                                            _orderDetails = order.toJson();
+                                            _isTableView = false;
+                                          });
+                                        },
+                                        onDelete: _handleOrderDelete,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             )
                           : SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
                               padding: EdgeInsets.all(isSmallScreen ? 8 : 16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
