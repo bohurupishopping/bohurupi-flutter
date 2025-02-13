@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:iconsax/iconsax.dart';
 import '../firebase_order/firebase_order_table.dart';
 import './floating_nav_bar.dart';
 import '../../models/firebase_order.dart';
@@ -33,6 +34,8 @@ class OrdersPageLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -41,7 +44,7 @@ class OrdersPageLayout extends StatelessWidget {
           children: [
             // Background gradient
             Positioned.fill(
-              child: DecoratedBox(
+              child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -49,7 +52,7 @@ class OrdersPageLayout extends StatelessWidget {
                     colors: [
                       theme.colorScheme.surface,
                       theme.colorScheme.surface.withOpacity(0.8),
-                      theme.colorScheme.background.withOpacity(0.9),
+                      theme.colorScheme.surface.withOpacity(0.9),
                     ],
                   ),
                 ),
@@ -59,7 +62,7 @@ class OrdersPageLayout extends StatelessWidget {
             // Main content
             Positioned.fill(
               child: Container(
-                margin: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                margin: EdgeInsets.all(isSmallScreen ? 4 : 8),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(16),
@@ -76,7 +79,7 @@ class OrdersPageLayout extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _buildHeader(theme),
+                    _buildHeader(theme, isSmallScreen),
                     Expanded(
                       child: RefreshIndicator(
                         onRefresh: onRefresh,
@@ -102,9 +105,14 @@ class OrdersPageLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(ThemeData theme) {
+  Widget _buildHeader(ThemeData theme, bool isSmallScreen) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      padding: EdgeInsets.fromLTRB(
+        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 8 : 12,
+      ),
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(16),
@@ -121,88 +129,82 @@ class OrdersPageLayout extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTitleRow(theme),
-          const SizedBox(height: 12),
-          _buildSearchRow(theme),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTitleRow(ThemeData theme) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 6,
-          ),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                theme.colorScheme.primary.withOpacity(0.1),
-                theme.colorScheme.primary.withOpacity(0.05),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: theme.colorScheme.primary.withOpacity(0.1),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          Row(
             children: [
+              // Title with custom container
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 8 : 12,
+                  vertical: isSmallScreen ? 4 : 6,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primary.withOpacity(0.1),
+                      theme.colorScheme.primary.withOpacity(0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withOpacity(0.1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(isSmallScreen ? 4 : 6),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: FaIcon(
+                        icon,
+                        size: isSmallScreen ? 10 : 12,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                    SizedBox(width: isSmallScreen ? 6 : 8),
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                        fontSize: isSmallScreen ? 12 : 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              // Order Count Badge
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 6 : 8,
+                  vertical: isSmallScreen ? 3 : 4,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: FaIcon(
-                  icon,
-                  size: 12,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
+                child: Text(
+                  '${orders.length} Orders',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                    fontSize: isSmallScreen ? 10 : 12,
+                  ),
                 ),
               ),
+              SizedBox(width: isSmallScreen ? 6 : 8),
+              // Refresh Button
+              _buildRefreshButton(theme, isSmallScreen),
             ],
           ),
-        ),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 4,
-          ),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            '${orders.length} Orders',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSearchRow(ThemeData theme) {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 36,
+          SizedBox(height: isSmallScreen ? 8 : 12),
+          // Search Field
+          Container(
+            height: isSmallScreen ? 32 : 36,
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(8),
@@ -219,80 +221,58 @@ class OrdersPageLayout extends StatelessWidget {
             ),
             child: TextField(
               onChanged: onSearch,
-              style: theme.textTheme.bodySmall,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: isSmallScreen ? 12 : 14,
+              ),
               decoration: InputDecoration(
                 hintText: 'Search orders...',
                 hintStyle: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withOpacity(0.5),
+                  fontSize: isSmallScreen ? 12 : 14,
                 ),
                 prefixIcon: Icon(
-                  Icons.search,
-                  size: 16,
+                  Iconsax.search_normal,
+                  size: isSmallScreen ? 14 : 16,
                   color: theme.colorScheme.onSurface.withOpacity(0.5),
                 ),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 8 : 12,
+                  vertical: isSmallScreen ? 6 : 8,
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        _buildRefreshButton(theme),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildRefreshButton(ThemeData theme) {
-    return Container(
-      height: 36,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary,
-            theme.colorScheme.primary.withOpacity(0.9),
-          ],
+  Widget _buildRefreshButton(ThemeData theme, bool isSmallScreen) {
+    return FilledButton.tonal(
+      onPressed: onRefresh,
+      style: FilledButton.styleFrom(
+        padding: EdgeInsets.symmetric(
+          horizontal: isSmallScreen ? 8 : 12,
+          vertical: isSmallScreen ? 6 : 8,
         ),
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+        visualDensity: VisualDensity.compact,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Iconsax.refresh,
+            size: isSmallScreen ? 10 : 12,
+          ),
+          SizedBox(width: isSmallScreen ? 6 : 8),
+          Text(
+            'Refresh',
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontSize: isSmallScreen ? 10 : 12,
+            ),
           ),
         ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onRefresh,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
-            ),
-            child: Row(
-              children: [
-                FaIcon(
-                  FontAwesomeIcons.arrowsRotate,
-                  size: 12,
-                  color: theme.colorScheme.onPrimary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Refresh',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

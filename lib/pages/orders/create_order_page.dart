@@ -15,56 +15,25 @@ class CreateOrderPage extends ConsumerStatefulWidget {
   ConsumerState<CreateOrderPage> createState() => _CreateOrderPageState();
 }
 
-class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
-  final _searchController = TextEditingController();
-  bool _isSearching = false;
+class _CreateOrderPageState extends ConsumerState<CreateOrderPage> with AutomaticKeepAliveClientMixin {
   bool _isTableView = true;
   Map<String, dynamic>? _orderDetails;
+  final _refreshKey = GlobalKey<RefreshIndicatorState>();
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load orders on first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(apiOrdersProvider(const ApiOrdersFilter()));
+    });
   }
 
-  Future<void> _searchOrder() async {
-    if (_searchController.text.isEmpty) return;
-
-    setState(() {
-      _isSearching = true;
-    });
-
-    try {
-      // TODO: Implement actual WooCommerce order search
-      await Future.delayed(const Duration(seconds: 1));
-      
-      setState(() {
-        _orderDetails = {
-          'orderId': _searchController.text,
-          'customerName': 'John Doe',
-          'orderstatus': 'Prepaid',
-          'status': 'pending',
-          'products': [
-            {
-              'details': 'Test Product 1',
-              'image': 'https://picsum.photos/200',
-              'sku': 'TST001',
-              'sale_price': 999,
-              'product_page_url': 'https://example.com',
-              'product_category': 'Category 1 | Category 2',
-              'colour': 'Red',
-              'size': 'XL',
-              'qty': 1,
-            },
-          ],
-        };
-        _isTableView = false;
-      });
-    } finally {
-      setState(() {
-        _isSearching = false;
-      });
-    }
+  Future<void> _handleRefresh() async {
+    ref.invalidate(apiOrdersProvider(const ApiOrdersFilter()));
   }
 
   Future<void> _handleOrderSubmit(Map<String, dynamic> data) async {
@@ -80,7 +49,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
         _orderDetails = null;
       });
       // Refresh orders list
-      ref.invalidate(apiOrdersProvider);
+      _refreshKey.currentState?.show();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -96,7 +65,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
       final mutations = ref.read(apiOrderMutationsProvider);
       await mutations.deleteOrder(orderId);
       // Refresh orders list
-      ref.invalidate(apiOrdersProvider);
+      _refreshKey.currentState?.show();
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -115,8 +84,11 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
     final ordersAsyncValue = ref.watch(apiOrdersProvider(const ApiOrdersFilter()));
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -143,7 +115,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
             // Main content
             Positioned.fill(
               child: Container(
-                margin: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                margin: EdgeInsets.all(isSmallScreen ? 4 : 8),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(16),
@@ -160,271 +132,35 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
                 ),
                 child: Column(
                   children: [
-                    // Header with search
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(16),
-                        ),
-                        color: theme.colorScheme.surface,
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.primary.withOpacity(0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Title Row with View Toggle
-                          Row(
-                            children: [
-                              // Title with custom container
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      theme.colorScheme.primary.withOpacity(0.1),
-                                      theme.colorScheme.primary.withOpacity(0.05),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(30),
-                                  border: Border.all(
-                                    color: theme.colorScheme.primary.withOpacity(0.1),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: theme.colorScheme.primary.withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        _isTableView ? Iconsax.task_square : FontAwesomeIcons.plus,
-                                        size: 12,
-                                        color: theme.colorScheme.primary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _isTableView ? 'Orders' : 'Create Order',
-                                      style: theme.textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: theme.colorScheme.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Spacer(),
-                              // View Toggle Button
-                              FilledButton.tonal(
-                                onPressed: () {
-                                  setState(() {
-                                    _isTableView = !_isTableView;
-                                    if (_isTableView) {
-                                      _orderDetails = null;
-                                    }
-                                  });
-                                },
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      _isTableView ? FontAwesomeIcons.plus : Iconsax.task_square,
-                                      size: 12,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _isTableView ? 'Create New' : 'View Orders',
-                                      style: theme.textTheme.labelSmall,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (!_isTableView) ...[
-                            const SizedBox(height: 12),
-                            // Search WooCommerce order
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.surface,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: theme.colorScheme.outline.withOpacity(0.1),
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: theme.colorScheme.shadow.withOpacity(0.05),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: TextField(
-                                      controller: _searchController,
-                                      onSubmitted: (_) => _searchOrder(),
-                                      style: theme.textTheme.bodySmall,
-                                      decoration: InputDecoration(
-                                        hintText: 'Enter WooCommerce Order ID...',
-                                        hintStyle: theme.textTheme.bodySmall?.copyWith(
-                                          color: theme.colorScheme.onSurface.withOpacity(0.5),
-                                        ),
-                                        prefixIcon: Icon(
-                                          Iconsax.search_normal,
-                                          size: 16,
-                                          color: theme.colorScheme.onSurface.withOpacity(0.5),
-                                        ),
-                                        border: InputBorder.none,
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        theme.colorScheme.primary,
-                                        theme.colorScheme.primary.withOpacity(0.9),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: theme.colorScheme.primary.withOpacity(0.2),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: _isSearching ? null : _searchOrder,
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            if (_isSearching)
-                                              const SizedBox(
-                                                width: 12,
-                                                height: 12,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                                ),
-                                              )
-                                            else
-                                              const FaIcon(
-                                                FontAwesomeIcons.magnifyingGlass,
-                                                size: 12,
-                                                color: Colors.white,
-                                              ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              _isSearching ? 'Searching...' : 'Search',
-                                              style: theme.textTheme.labelSmall?.copyWith(
-                                                color: theme.colorScheme.onPrimary,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                    // Header
+                    _buildHeader(theme, isSmallScreen),
 
                     // Content
                     Expanded(
                       child: ordersAsyncValue.when(
                         loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (error, stack) => Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  size: 48,
-                                  color: theme.colorScheme.error,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Error loading orders',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: theme.colorScheme.error,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  error.toString(),
-                                  textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.error.withOpacity(0.8),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                FilledButton.tonal(
-                                  onPressed: () => ref.invalidate(apiOrdersProvider),
-                                  child: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        error: (error, stack) => _buildErrorView(theme, error),
                         data: (response) => _isTableView
-                          ? SingleChildScrollView(
-                              padding: const EdgeInsets.all(16),
-                              child: OrderTable(
-                                orders: response.orders,
-                                onEdit: (order) {
-                                  setState(() {
-                                    _orderDetails = order.toJson();
-                                    _isTableView = false;
-                                  });
-                                },
-                                onDelete: _handleOrderDelete,
+                          ? RefreshIndicator(
+                              key: _refreshKey,
+                              onRefresh: _handleRefresh,
+                              child: SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: EdgeInsets.all(isSmallScreen ? 8 : 16),
+                                child: OrderTable(
+                                  orders: response.orders,
+                                  onEdit: (order) {
+                                    setState(() {
+                                      _orderDetails = order.toJson();
+                                      _isTableView = false;
+                                    });
+                                  },
+                                  onDelete: _handleOrderDelete,
+                                ),
                               ),
                             )
                           : SingleChildScrollView(
-                              padding: const EdgeInsets.all(16),
+                              padding: EdgeInsets.all(isSmallScreen ? 8 : 16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -452,6 +188,192 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
       ),
       floatingActionButton: const FloatingNavBar(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme, bool isSmallScreen) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 8 : 12,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(16),
+        ),
+        color: theme.colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title Row with View Toggle and Refresh Button
+          Row(
+            children: [
+              // Title with custom container
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 8 : 12,
+                  vertical: isSmallScreen ? 4 : 6,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primary.withOpacity(0.1),
+                      theme.colorScheme.primary.withOpacity(0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withOpacity(0.1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(isSmallScreen ? 4 : 6),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _isTableView ? Iconsax.task_square : FontAwesomeIcons.plus,
+                        size: isSmallScreen ? 10 : 12,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                    SizedBox(width: isSmallScreen ? 6 : 8),
+                    Text(
+                      _isTableView ? 'Orders' : 'Create Order',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                        fontSize: isSmallScreen ? 12 : 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              // Refresh Button
+              if (_isTableView) ...[
+                _buildRefreshButton(theme, isSmallScreen),
+                SizedBox(width: isSmallScreen ? 6 : 8),
+              ],
+              // View Toggle Button
+              FilledButton.tonal(
+                onPressed: () {
+                  setState(() {
+                    _isTableView = !_isTableView;
+                    if (_isTableView) {
+                      _orderDetails = null;
+                    }
+                  });
+                },
+                style: FilledButton.styleFrom(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isSmallScreen ? 8 : 12,
+                    vertical: isSmallScreen ? 6 : 8,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isTableView ? FontAwesomeIcons.plus : Iconsax.task_square,
+                      size: isSmallScreen ? 10 : 12,
+                    ),
+                    SizedBox(width: isSmallScreen ? 6 : 8),
+                    Text(
+                      _isTableView ? 'Create New' : 'View Orders',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontSize: isSmallScreen ? 10 : 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefreshButton(ThemeData theme, bool isSmallScreen) {
+    return FilledButton.tonal(
+      onPressed: _handleRefresh,
+      style: FilledButton.styleFrom(
+        padding: EdgeInsets.symmetric(
+          horizontal: isSmallScreen ? 8 : 12,
+          vertical: isSmallScreen ? 6 : 8,
+        ),
+        visualDensity: VisualDensity.compact,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Iconsax.refresh,
+            size: isSmallScreen ? 10 : 12,
+          ),
+          SizedBox(width: isSmallScreen ? 6 : 8),
+          Text(
+            'Refresh',
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontSize: isSmallScreen ? 10 : 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorView(ThemeData theme, Object error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading orders',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              error.toString(),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.error.withOpacity(0.8),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.tonal(
+              onPressed: _handleRefresh,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 } 

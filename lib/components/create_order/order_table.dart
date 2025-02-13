@@ -28,115 +28,116 @@ class OrderTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
 
     if (isLoading) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Loading orders...',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-          ],
-        ),
+      return const Center(
+        child: CircularProgressIndicator(),
       );
     }
 
     if (error != null) {
-      return Center(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.error.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.error_outline,
-                color: theme.colorScheme.error,
-                size: 48,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Error loading orders',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: theme.colorScheme.error,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                error!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.error.withOpacity(0.7),
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildErrorView(theme, error!);
     }
 
     if (orders.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.symmetric(vertical: 32),
+      return _buildEmptyView(theme);
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: orders.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final order = orders[index];
+            return _OrderCard(
+              order: order,
+              onEdit: onEdit,
+              onDelete: onDelete,
+              onStatusChange: onStatusChange,
+              readOnly: readOnly,
+              isSmallScreen: isSmallScreen,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildErrorView(ThemeData theme, String error) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+          color: theme.colorScheme.error.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Iconsax.box,
+              Icons.error_outline,
+              color: theme.colorScheme.error,
               size: 48,
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
             ),
             const SizedBox(height: 16),
             Text(
-              'No orders found',
+              'Error loading orders',
               style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'We couldn\'t find any orders matching your criteria.',
+              error,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                color: theme.colorScheme.error.withOpacity(0.7),
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: orders.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final order = orders[index];
-        return _OrderCard(
-          order: order,
-          onEdit: onEdit,
-          onDelete: onDelete,
-          onStatusChange: onStatusChange,
-          readOnly: readOnly,
-        );
-      },
+  Widget _buildEmptyView(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Iconsax.box,
+            size: 48,
+            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No orders found',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'We couldn\'t find any orders matching your criteria.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -147,6 +148,7 @@ class _OrderCard extends StatelessWidget {
   final Function(String orderId)? onDelete;
   final Function(String orderId, String newStatus)? onStatusChange;
   final bool readOnly;
+  final bool isSmallScreen;
 
   const _OrderCard({
     required this.order,
@@ -154,6 +156,7 @@ class _OrderCard extends StatelessWidget {
     this.onDelete,
     this.onStatusChange,
     this.readOnly = false,
+    this.isSmallScreen = false,
   });
 
   @override
@@ -166,155 +169,170 @@ class _OrderCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Order Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withOpacity(0.5),
-                ),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Order ID and Status Row
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Iconsax.box,
-                        size: 14,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '#${order.orderId}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildStatusChip(theme, order.orderstatus),
-                            const SizedBox(width: 8),
-                            _buildStatusChip(theme, order.status),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Customer Info Row
-                Row(
-                  children: [
-                    Icon(
-                      Iconsax.user,
-                      size: 14,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        order.customerName,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          _buildHeader(theme),
 
           // Products
           if (order.products.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Products',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: order.products.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final product = order.products[index];
-                      return _OrderProductCard(product: product);
-                    },
-                  ),
-                ],
-              ),
-            ),
+            _buildProducts(theme),
 
           // Action Buttons
           if (!readOnly)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+            _buildActions(context, theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Order ID and Status Row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Iconsax.box,
+                  size: 14,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '#${order.orderId}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildStatusChip(theme, order.orderstatus),
+                      const SizedBox(width: 8),
+                      _buildStatusChip(theme, order.status),
+                    ],
                   ),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (order.trackingId != null) ...[
-                    _buildActionButton(
-                      context,
-                      icon: Iconsax.truck,
-                      label: 'Track',
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => OrderTrackingDialog(
-                            trackingId: order.trackingId!,
-                            isOpen: true,
-                            onOpenChange: (isOpen) {
-                              if (!isOpen) Navigator.pop(context);
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  _buildActionButton(
-                    context,
-                    icon: Iconsax.edit,
-                    label: 'Edit',
-                    onPressed: () => onEdit?.call(order),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildDeleteButton(context),
-                ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Customer Info Row
+          Row(
+            children: [
+              Icon(
+                Iconsax.user,
+                size: 14,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  order.customerName,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProducts(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Products',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.primary,
             ),
+          ),
+          const SizedBox(height: 12),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: order.products.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final product = order.products[index];
+              return _OrderProductCard(
+                product: product,
+                isSmallScreen: isSmallScreen,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActions(BuildContext context, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (order.trackingId != null) ...[
+            _buildActionButton(
+              context,
+              icon: Iconsax.truck,
+              label: 'Track',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => OrderTrackingDialog(
+                    trackingId: order.trackingId!,
+                    isOpen: true,
+                    onOpenChange: (isOpen) {
+                      if (!isOpen) Navigator.pop(context);
+                    },
+                  ),
+                );
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
+          _buildActionButton(
+            context,
+            icon: Iconsax.edit,
+            label: 'Edit',
+            onPressed: () => onEdit?.call(order),
+          ),
+          const SizedBox(width: 8),
+          _buildDeleteButton(context, theme),
         ],
       ),
     );
@@ -385,19 +403,20 @@ class _OrderCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12),
-            ),
+            if (!isSmallScreen) ...[
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDeleteButton(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget _buildDeleteButton(BuildContext context, ThemeData theme) {
     return SizedBox(
       height: 32,
       child: FilledButton.tonal(
@@ -438,11 +457,13 @@ class _OrderCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Iconsax.trash, size: 14),
-            const SizedBox(width: 4),
-            Text(
-              'Delete',
-              style: const TextStyle(fontSize: 12),
-            ),
+            if (!isSmallScreen) ...[
+              const SizedBox(width: 4),
+              const Text(
+                'Delete',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
           ],
         ),
       ),
@@ -452,27 +473,30 @@ class _OrderCard extends StatelessWidget {
 
 class _OrderProductCard extends StatelessWidget {
   final ApiOrderProduct product;
+  final bool isSmallScreen;
 
   const _OrderProductCard({
     required this.product,
+    this.isSmallScreen = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final imageSize = isSmallScreen ? 40.0 : 48.0;
 
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Product Image
             if (product.image.isNotEmpty)
               SizedBox(
-                width: 48,
-                height: 48,
+                width: imageSize,
+                height: imageSize,
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(6),
@@ -487,8 +511,8 @@ class _OrderProductCard extends StatelessWidget {
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
-                          width: 48,
-                          height: 48,
+                          width: imageSize,
+                          height: imageSize,
                           color: theme.colorScheme.surfaceVariant,
                           child: const Icon(Iconsax.image, size: 24),
                         );
@@ -498,7 +522,7 @@ class _OrderProductCard extends StatelessWidget {
                 ),
               ),
 
-            const SizedBox(width: 12),
+            SizedBox(width: isSmallScreen ? 8 : 12),
 
             // Product Details
             Expanded(
@@ -546,7 +570,7 @@ class _OrderProductCard extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(width: 12),
+            SizedBox(width: isSmallScreen ? 8 : 12),
 
             // Price
             Text(
@@ -568,8 +592,14 @@ class _OrderProductCard extends StatelessWidget {
     required IconData icon,
   }) {
     final theme = Theme.of(context);
+    final fontSize = isSmallScreen ? 9.0 : 10.0;
+    final iconSize = isSmallScreen ? 10.0 : 12.0;
+    final padding = isSmallScreen 
+      ? const EdgeInsets.symmetric(horizontal: 4, vertical: 1)
+      : const EdgeInsets.symmetric(horizontal: 6, vertical: 2);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: padding,
       decoration: BoxDecoration(
         color: theme.colorScheme.primary.withOpacity(0.05),
         borderRadius: BorderRadius.circular(4),
@@ -579,14 +609,14 @@ class _OrderProductCard extends StatelessWidget {
         children: [
           Icon(
             icon,
-            size: 12,
+            size: iconSize,
             color: theme.colorScheme.primary.withOpacity(0.8),
           ),
           const SizedBox(width: 4),
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
-              fontSize: 10,
+              fontSize: fontSize,
               color: theme.colorScheme.primary,
               fontWeight: FontWeight.w500,
             ),
