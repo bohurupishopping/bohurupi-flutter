@@ -1,31 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'environment_service.dart';
 
 class FirebaseOrdersService {
-  static const String apiKey = 'x84kjjfkdjk';
-  static const String adminEmail = 'admin@bohurupi.com';
-  static const String adminPassword = '33558822';
-  
-  // API URLs
-  static const String _devBaseUrl = 'http://localhost:3000/api/firebase';
-  static const String _prodBaseUrl = 'https://order.bohurupi.com/api/firebase';
+  final EnvironmentService _env = EnvironmentService.instance;
+  final String _endpoint = '/firebase';
 
-  final bool isDev;
-
-  FirebaseOrdersService({
-    bool? isDev,
-  }) : isDev = isDev ?? kDebugMode {
-    // Debug log
-  }
-
-  String get _apiBaseUrl => isDev ? _devBaseUrl : _prodBaseUrl;
-
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    'x-api-key': apiKey,
-    'Authorization': 'Basic ${base64Encode(utf8.encode('$adminEmail:$adminPassword'))}',
-  };
+  String get _apiBaseUrl => '${_env.baseUrl}$_endpoint';
 
   // Fetch completed orders with pagination and search
   Future<Map<String, dynamic>> getCompletedOrders({
@@ -42,12 +24,17 @@ class FirebaseOrdersService {
 
       final uri = Uri.parse('$_apiBaseUrl/orders/completed').replace(queryParameters: queryParams);
       
-      // Debug log
+      if (kDebugMode) {
+        print('GET Request: $uri');
+        print('Headers: ${_env.headers}');
+      }
       
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: _env.headers);
 
-      // Debug log
-      // Debug log
+      if (kDebugMode) {
+        print('Response Status: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+      }
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -59,7 +46,9 @@ class FirebaseOrdersService {
         throw Exception('Failed to fetch completed orders: ${response.statusCode}');
       }
     } catch (e) {
-      // Debug log
+      if (kDebugMode) {
+        print('Error fetching completed orders: $e');
+      }
       throw Exception('Failed to fetch completed orders: $e');
     }
   }
@@ -79,12 +68,17 @@ class FirebaseOrdersService {
 
       final uri = Uri.parse('$_apiBaseUrl/orders/pending').replace(queryParameters: queryParams);
       
-      // Debug log
+      if (kDebugMode) {
+        print('GET Request: $uri');
+        print('Headers: ${_env.headers}');
+      }
       
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: _env.headers);
 
-      // Debug log
-      // Debug log
+      if (kDebugMode) {
+        print('Response Status: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+      }
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -96,7 +90,9 @@ class FirebaseOrdersService {
         throw Exception('Failed to fetch pending orders: ${response.statusCode}');
       }
     } catch (e) {
-      // Debug log
+      if (kDebugMode) {
+        print('Error fetching pending orders: $e');
+      }
       throw Exception('Failed to fetch pending orders: $e');
     }
   }

@@ -1,11 +1,10 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/woo_order.dart';
 import '../../services/woo_orders_service.dart';
+import '../../services/environment_service.dart';
 
 final wooOrdersServiceProvider = Provider((ref) {
-  return WooOrdersService(
-    isDev: true, // Set to false for production
-  );
+  return WooOrdersService();
 });
 
 class WooOrdersState {

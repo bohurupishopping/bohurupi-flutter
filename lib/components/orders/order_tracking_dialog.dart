@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import '../../models/tracking_data.dart';
 import '../../services/tracking_service.dart';
 
-final trackingServiceProvider = Provider((ref) => TrackingService(
-  isDev: kDebugMode,
-));
+final trackingServiceProvider = Provider((ref) => TrackingService());
 
 final trackingDataProvider = FutureProvider.family<TrackingData, String>(
   (ref, trackingId) async {
@@ -57,7 +54,7 @@ class OrderTrackingDialog extends HookConsumerWidget {
     final trackingData = ref.watch(trackingDataProvider(trackingId));
 
     return Material(
-      color: theme.colorScheme.background,
+      color: theme.colorScheme.surface,
       child: SafeArea(
         child: Column(
           children: [

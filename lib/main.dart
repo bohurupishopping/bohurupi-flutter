@@ -5,6 +5,7 @@ import 'pages/dashboard/dashboard_page.dart';
 import 'pages/orders/woo_orders_page.dart';
 import 'pages/orders/firebase_completed_page.dart';
 import 'pages/orders/firebase_pending_page.dart';
+import 'pages/orders/create_order_page.dart';
 
 void main() {
   runApp(const ProviderScope(child: MainApp()));
@@ -28,6 +29,7 @@ class MainApp extends StatelessWidget {
         '/woo-orders': (context) => const WooOrdersPage(),
         '/firebase-completed': (context) => const FirebaseCompletedPage(),
         '/firebase-pending': (context) => const FirebasePendingPage(),
+        '/create-order': (context) => const CreateOrderPage(),
       },
     );
   }

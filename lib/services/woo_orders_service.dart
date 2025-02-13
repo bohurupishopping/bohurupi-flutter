@@ -1,28 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'environment_service.dart';
 
 class WooOrdersService {
-  static const String apiKey = 'x84kjjfkdjk';
-  
-  // API URLs
-  static const String _devBaseUrl = 'http://localhost:3000/api/woocommerce';
-  static const String _prodBaseUrl = 'https://order.bohurupi.com/api/woocommerce';
+  final EnvironmentService _env = EnvironmentService.instance;
+  final String _endpoint = '/woocommerce';
 
-  final bool isDev;
-
-  WooOrdersService({
-    bool? isDev,
-  }) : isDev = isDev ?? kDebugMode {
-    // Debug log
-  }
-
-  String get _apiBaseUrl => isDev ? _devBaseUrl : _prodBaseUrl;
-
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    'x-api-key': apiKey,
-  };
+  String get _apiBaseUrl => '${_env.baseUrl}$_endpoint';
 
   // Fetch orders list with pagination, search, and filters
   Future<Map<String, dynamic>> getOrders({
@@ -45,12 +30,17 @@ class WooOrdersService {
 
       final uri = Uri.parse('$_apiBaseUrl/orders').replace(queryParameters: queryParams);
       
-      // Debug log
+      if (kDebugMode) {
+        print('GET Request: $uri');
+        print('Headers: ${_env.headersWithoutAuth}');
+      }
       
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: _env.headersWithoutAuth);
 
-      // Debug log
-      // Debug log
+      if (kDebugMode) {
+        print('Response Status: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+      }
 
       if (response.statusCode == 200) {
         final orders = jsonDecode(response.body);
@@ -70,7 +60,9 @@ class WooOrdersService {
         throw Exception('Failed to fetch orders: ${response.statusCode}');
       }
     } catch (e) {
-      // Debug log
+      if (kDebugMode) {
+        print('Error fetching orders: $e');
+      }
       throw Exception('Failed to fetch orders: $e');
     }
   }
@@ -80,12 +72,17 @@ class WooOrdersService {
     try {
       final uri = Uri.parse('$_apiBaseUrl/orders/$orderId');
       
-      // Debug log
+      if (kDebugMode) {
+        print('GET Request: $uri');
+        print('Headers: ${_env.headersWithoutAuth}');
+      }
       
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: _env.headersWithoutAuth);
 
-      // Debug log
-      // Debug log
+      if (kDebugMode) {
+        print('Response Status: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+      }
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -99,7 +96,9 @@ class WooOrdersService {
         throw Exception('Failed to fetch order details: ${response.statusCode}');
       }
     } catch (e) {
-      // Debug log
+      if (kDebugMode) {
+        print('Error fetching order details: $e');
+      }
       throw Exception('Failed to fetch order details: $e');
     }
   }

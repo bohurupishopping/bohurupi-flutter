@@ -61,6 +61,16 @@ class FloatingNavBar extends StatelessWidget {
                   },
                 ),
                 _NavBarItem(
+                  icon: Iconsax.add_circle,
+                  label: 'Create',
+                  isActive: currentRoute == '/create-order',
+                  onTap: () {
+                    if (currentRoute != '/create-order') {
+                      Navigator.pushNamed(context, '/create-order');
+                    }
+                  },
+                ),
+                _NavBarItem(
                   icon: Iconsax.timer,
                   label: 'Pending',
                   isActive: currentRoute == '/firebase-pending',

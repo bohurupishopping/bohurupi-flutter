@@ -2,26 +2,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../models/tracking_data.dart';
+import 'environment_service.dart';
 
 class TrackingService {
-  static const String apiKey = 'x84kjjfkdjk';
-  
-  // API URLs
-  static const String _devBaseUrl = 'http://localhost:3000/api';
-  static const String _prodBaseUrl = 'https://order.bohurupi.com/api';
+  final EnvironmentService _env = EnvironmentService.instance;
+  final String _endpoint = '/tracking';
 
-  final bool isDev;
-
-  TrackingService({
-    bool? isDev,
-  }) : isDev = isDev ?? kDebugMode; // Use kDebugMode as default if isDev is not provided
-
-  String get _apiBaseUrl => isDev ? _devBaseUrl : _prodBaseUrl;
-
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    'x-api-key': apiKey,
-  };
+  String get _apiBaseUrl => '${_env.baseUrl}$_endpoint';
 
   Future<TrackingData> getTrackingInfo(String trackingId) async {
     try {
@@ -29,15 +16,19 @@ class TrackingService {
         'waybill': trackingId,
       };
 
-      final uri = Uri.parse('$_apiBaseUrl/tracking').replace(queryParameters: queryParams);
+      final uri = Uri.parse(_apiBaseUrl).replace(queryParameters: queryParams);
       
-      // Debug log
-      // Debug log for environment
+      if (kDebugMode) {
+        print('GET Request: $uri');
+        print('Headers: ${_env.headersWithoutAuth}');
+      }
       
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: _env.headersWithoutAuth);
 
-      // Debug log
-      // Debug log
+      if (kDebugMode) {
+        print('Response Status: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+      }
 
       if (response.statusCode == 200) {
         return TrackingData.fromJson(jsonDecode(response.body));
@@ -51,7 +42,9 @@ class TrackingService {
         throw Exception('Failed to fetch tracking information: ${response.statusCode}');
       }
     } catch (e) {
-      // Debug log
+      if (kDebugMode) {
+        print('Error fetching tracking information: $e');
+      }
       throw Exception('Failed to fetch tracking information: $e');
     }
   }
