@@ -7,46 +7,45 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/firebase_order.dart';
 import 'firebase_order_details_dialog.dart';
 import '../orders/order_tracking_dialog.dart';
-import 'package:flutter/rendering.dart';
-import 'dart:ui';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 
 @immutable
 class FirebaseOrderTableUtils {
   const FirebaseOrderTableUtils._();
 
+  static final _dateFormatter = DateFormat('MMM d, y');
+  static final Map<String, String> _dateCache = {};
+  
+  static final _statusColors = {
+    'pending': const Color(0xFFFFA726), // Soft Orange
+    'completed': const Color(0xFF66BB6A), // Soft Green
+    'default': const Color(0xFF9E9E9E), // Neutral Gray
+  };
+
+  static final _orderStatusColors = {
+    'cod': const Color(0xFF5C6BC0), // Soft Indigo
+    'prepaid': const Color(0xFF26A69A), // Soft Teal
+    'default': const Color(0xFF9E9E9E), // Neutral Gray
+  };
+
   static Color getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return const Color(0xFFFFA726); // Soft Orange
-      case 'completed':
-        return const Color(0xFF66BB6A); // Soft Green
-      default:
-        return const Color(0xFF9E9E9E); // Neutral Gray
-    }
+    return _statusColors[status.toLowerCase()] ?? _statusColors['default']!;
   }
 
   static Color getOrderStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'cod':
-        return const Color(0xFF5C6BC0); // Soft Indigo
-      case 'prepaid':
-        return const Color(0xFF26A69A); // Soft Teal
-      default:
-        return const Color(0xFF9E9E9E); // Neutral Gray
-    }
+    return _orderStatusColors[status.toLowerCase()] ?? _orderStatusColors['default']!;
   }
 
   static String formatDate(String? dateStr) {
     if (dateStr == null) return 'N/A';
-    try {
-      final date = DateTime.parse(dateStr);
-      return DateFormat('MMM d, y').format(date);
-    } catch (e) {
-      debugPrint('Error formatting date: $e');
-      return dateStr;
-    }
+    return _dateCache.putIfAbsent(dateStr, () {
+      try {
+        final date = DateTime.parse(dateStr);
+        return _dateFormatter.format(date);
+      } catch (e) {
+        debugPrint('Error formatting date: $e');
+        return dateStr;
+      }
+    });
   }
 }
 
@@ -81,42 +80,26 @@ class _TableStyles {
     final primaryOpacity02 = theme.colorScheme.primary.withOpacity(0.2);
     final surfaceOpacity95 = theme.colorScheme.surface.withOpacity(0.95);
     final outlineOpacity01 = theme.colorScheme.outline.withOpacity(0.1);
-    final shadowOpacity01 = theme.colorScheme.shadow.withOpacity(0.1);
 
     return _TableStyles(
       cardDecoration: BoxDecoration(
         color: surfaceOpacity95,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: primaryOpacity01, width: 0.5),
-        boxShadow: [
-          BoxShadow(
-            color: shadowOpacity01,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       productContainerDecoration: BoxDecoration(
         color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: primaryOpacity01,
-          width: 0.5,
-        ),
+        border: Border.all(color: primaryOpacity01, width: 0.5),
       ),
       imageContainerDecoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: outlineOpacity01,
-        ),
+        border: Border.all(color: outlineOpacity01),
       ),
       orderIdDecoration: BoxDecoration(
         color: theme.colorScheme.primaryContainer.withOpacity(0.7),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: primaryOpacity02,
-          width: 0.5,
-        ),
+        border: Border.all(color: primaryOpacity02, width: 0.5),
       ),
       dateDecoration: BoxDecoration(
         color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
@@ -162,58 +145,58 @@ class FirebaseOrderTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final styles = _TableStyles.from(theme);
+    if (isLoading) return const _LoadingState();
+    if (error != null) return _ErrorState(error: error!);
+    if (orders.isEmpty) return const _EmptyState();
 
-    if (isLoading) {
-      return const _LoadingState();
-    }
-
-    if (error != null) {
-      return _ErrorState(error: error!);
-    }
-
-    if (orders.isEmpty) {
-      return const _EmptyState();
-    }
+    final styles = _TableStyles.from(Theme.of(context));
 
     return Column(
       children: [
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            itemCount: orders.length,
-            itemBuilder: (context, index) {
-              final order = orders[index];
-              return RepaintBoundary(
-                child: _OrderCard(
-                  order: order,
-                  onViewDetails: () {
-                    showDialog(
-                      context: context,
-                      useSafeArea: false,
-                      builder: (context) => FirebaseOrderDetailsDialog(
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final order = orders[index];
+                      return _OptimizedOrderCard(
+                        key: ValueKey(order.id),
                         order: order,
-                        isOpen: true,
-                        onOpenChange: (isOpen) {
-                          if (!isOpen) Navigator.of(context).pop();
-                        },
-                      ),
-                    );
-                  },
-                  styles: styles,
+                        onViewDetails: () => _showOrderDetails(context, order),
+                        styles: styles,
+                      );
+                    },
+                    childCount: orders.length,
+                  ),
                 ),
-              );
-            },
+              ),
+            ],
           ),
         ),
         if (totalPages > 1)
-          _Pagination(
+          _OptimizedPagination(
             currentPage: currentPage,
             totalPages: totalPages,
             onPageChanged: onPageChanged,
           ),
       ],
+    );
+  }
+
+  void _showOrderDetails(BuildContext context, FirebaseOrder order) {
+    showDialog(
+      context: context,
+      useSafeArea: false,
+      builder: (context) => FirebaseOrderDetailsDialog(
+        order: order,
+        isOpen: true,
+        onOpenChange: (isOpen) {
+          if (!isOpen) Navigator.of(context).pop();
+        },
+      ),
     );
   }
 }
@@ -335,454 +318,293 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _OrderCard extends StatelessWidget {
+class _OptimizedOrderCard extends StatelessWidget {
   final FirebaseOrder order;
   final VoidCallback onViewDetails;
   final _TableStyles styles;
 
-  const _OrderCard({
+  const _OptimizedOrderCard({
+    Key? key,
     required this.order,
+    required this.onViewDetails,
+    required this.styles,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Pre-compute values outside the build method
+    final formattedDate = FirebaseOrderTableUtils.formatDate(order.createdAt);
+    final statusColor = FirebaseOrderTableUtils.getStatusColor(order.status);
+    final orderStatusColor = FirebaseOrderTableUtils.getOrderStatusColor(order.orderstatus);
+
+    return RepaintBoundary(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onViewDetails,
+            borderRadius: BorderRadius.circular(16),
+            child: Ink(
+              decoration: styles.cardDecoration,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _OptimizedHeader(
+                    orderId: order.orderId,
+                    date: formattedDate ?? 'N/A',
+                    status: order.status,
+                    statusColor: statusColor,
+                    paymentMethod: order.orderstatus,
+                    orderStatusColor: orderStatusColor,
+                    styles: styles,
+                  ),
+                  if (order.products.isNotEmpty)
+                    _OptimizedProductList(
+                      products: order.products,
+                      styles: styles,
+                    ),
+                  _OptimizedFooter(
+                    trackingId: order.trackingId,
+                    onViewDetails: onViewDetails,
+                    styles: styles,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OptimizedHeader extends StatelessWidget {
+  final String orderId;
+  final String date;
+  final String status;
+  final String paymentMethod;
+  final Color statusColor;
+  final Color orderStatusColor;
+  final _TableStyles styles;
+
+  const _OptimizedHeader({
+    required this.orderId,
+    required this.date,
+    required this.status,
+    required this.statusColor,
+    required this.paymentMethod,
+    required this.orderStatusColor,
+    required this.styles,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: styles.orderIdDecoration,
+            child: Text(
+              '#$orderId',
+              style: styles.orderIdStyle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: statusColor.withOpacity(0.2),
+              ),
+            ),
+            child: Text(
+              status.toUpperCase(),
+              style: styles.valueStyle.copyWith(
+                color: statusColor,
+                fontSize: 10,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: orderStatusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: orderStatusColor.withOpacity(0.2),
+              ),
+            ),
+            child: Text(
+              paymentMethod.toUpperCase(),
+              style: styles.valueStyle.copyWith(
+                color: orderStatusColor,
+                fontSize: 10,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: styles.dateDecoration,
+            child: Text(date, style: styles.dateStyle),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OptimizedProductList extends StatelessWidget {
+  final List<FirebaseOrderProduct> products;
+  final _TableStyles styles;
+
+  const _OptimizedProductList({
+    required this.products,
+    required this.styles,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.all(8),
+      decoration: styles.productContainerDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final product in products)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  if (product.image.isNotEmpty)
+                    Container(
+                      width: 40,
+                      height: 40,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: styles.imageContainerDecoration,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: CachedNetworkImage(
+                          imageUrl: product.image,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          errorWidget: (context, url, error) => const Icon(
+                            Icons.error_outline,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product.details,
+                          style: styles.titleStyle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Quantity: ${product.qty}',
+                          style: styles.labelStyle,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OptimizedFooter extends StatelessWidget {
+  final String? trackingId;
+  final VoidCallback onViewDetails;
+  final _TableStyles styles;
+
+  const _OptimizedFooter({
+    required this.trackingId,
     required this.onViewDetails,
     required this.styles,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final statusColor = FirebaseOrderTableUtils.getStatusColor(order.status);
-    final orderStatusColor = FirebaseOrderTableUtils.getOrderStatusColor(order.orderstatus);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onViewDetails,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: styles.cardDecoration,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(theme, statusColor, orderStatusColor),
-              const SizedBox(height: 16),
-              _buildProductsList(theme),
-              const SizedBox(height: 16),
-              _buildActionButtons(theme),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(ThemeData theme, Color statusColor, Color orderStatusColor) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _OrderIdBadge(
-                orderId: order.orderId,
-                styles: styles,
-              ),
-              const SizedBox(width: 8),
-              _DateBadge(
-                date: order.createdAt,
-                styles: styles,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                order.customerName,
-                style: styles.titleStyle,
-              ),
-            ],
-          ),
-        ),
-        Row(
-          children: [
-            _StatusBadge(
-              text: order.status,
-              color: statusColor,
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton.icon(
+            onPressed: onViewDetails,
+            icon: Icon(
+              Icons.visibility_outlined,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
             ),
+            label: Text(
+              'View Details',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          if (trackingId != null) ...[
             const SizedBox(width: 8),
-            _StatusBadge(
-              text: order.orderstatus,
-              color: orderStatusColor,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProductsList(ThemeData theme) {
-    return Container(
-      decoration: styles.productContainerDecoration,
-      child: Column(
-        children: [
-          for (var i = 0; i < order.products.length; i++) ...[
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: _ProductListItem(
-                product: order.products[i],
-                styles: styles,
+            FilledButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  useSafeArea: false,
+                  builder: (context) => OrderTrackingDialog(
+                    trackingId: trackingId!,
+                    isOpen: true,
+                    onOpenChange: (isOpen) {
+                      if (!isOpen) Navigator.of(context).pop();
+                    },
+                  ),
+                );
+              },
+              icon: const Icon(Icons.local_shipping_outlined, size: 18),
+              label: const Text('Track'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
               ),
             ),
-            if (i < order.products.length - 1)
-              Divider(
-                height: 1,
-                indent: 12,
-                endIndent: 12,
-                color: theme.colorScheme.outline.withOpacity(0.05),
-              ),
           ],
         ],
       ),
     );
   }
-
-  Widget _buildActionButtons(ThemeData theme) {
-    return Row(
-      children: [
-        const Spacer(),
-        _ViewDetailsButton(onPressed: onViewDetails),
-        if (order.trackingId != null) ...[
-          const SizedBox(width: 8),
-          _TrackOrderButton(trackingId: order.trackingId!),
-        ],
-      ],
-    );
-  }
 }
 
-class _OrderIdBadge extends StatelessWidget {
-  final String orderId;
-  final _TableStyles styles;
-
-  const _OrderIdBadge({
-    required this.orderId,
-    required this.styles,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: styles.orderIdDecoration,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.shopping_bag_outlined,
-            size: 14,
-            color: theme.colorScheme.primary,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '#$orderId',
-            style: styles.orderIdStyle,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DateBadge extends StatelessWidget {
-  final String? date;
-  final _TableStyles styles;
-
-  const _DateBadge({
-    this.date,
-    required this.styles,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: styles.dateDecoration,
-      child: Text(
-        FirebaseOrderTableUtils.formatDate(date),
-        style: styles.dateStyle,
-      ),
-    );
-  }
-}
-
-class _ViewDetailsButton extends StatelessWidget {
-  final VoidCallback onPressed;
-
-  const _ViewDetailsButton({required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return TextButton.icon(
-      onPressed: onPressed,
-      icon: Icon(
-        Icons.visibility_outlined,
-        size: 18,
-        color: theme.colorScheme.primary,
-      ),
-      label: Text(
-        'View Details',
-        style: theme.textTheme.labelLarge?.copyWith(
-          color: theme.colorScheme.primary,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 8,
-        ),
-      ),
-    );
-  }
-}
-
-class _TrackOrderButton extends StatelessWidget {
-  final String trackingId;
-
-  const _TrackOrderButton({required this.trackingId});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return FilledButton.icon(
-      onPressed: () {
-        showDialog(
-          context: context,
-          useSafeArea: false,
-          builder: (context) => OrderTrackingDialog(
-            trackingId: trackingId,
-            isOpen: true,
-            onOpenChange: (isOpen) {
-              if (!isOpen) Navigator.of(context).pop();
-            },
-          ),
-        );
-      },
-      icon: const Icon(Icons.local_shipping_outlined, size: 18),
-      label: const Text('Track'),
-      style: FilledButton.styleFrom(
-        backgroundColor: theme.colorScheme.primary,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 8,
-        ),
-      ),
-    );
-  }
-}
-
-class _ProductListItem extends StatelessWidget {
-  final dynamic product;
-  final _TableStyles styles;
-
-  const _ProductListItem({
-    required this.product,
-    required this.styles,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (product.image.isNotEmpty)
-          Container(
-            width: 48,
-            height: 48,
-            decoration: styles.imageContainerDecoration,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: CachedNetworkImage(
-                imageUrl: product.image,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: theme.colorScheme.surfaceVariant,
-                  child: const Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
-                    ),
-                  ),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: theme.colorScheme.errorContainer,
-                  child: Center(
-                    child: Icon(
-                      Icons.error_outline,
-                      size: 20,
-                      color: theme.colorScheme.error,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                product.details,
-                style: styles.titleStyle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  _ProductDetail(
-                    label: 'SKU',
-                    value: product.sku,
-                    styles: styles,
-                  ),
-                  _ProductDetail(
-                    label: 'Qty',
-                    value: product.qty.toString(),
-                    styles: styles,
-                  ),
-                  _ProductDetail(
-                    label: 'Price',
-                    value: '₹${product.salePrice}',
-                    isHighlighted: true,
-                    styles: styles,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProductDetail extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isHighlighted;
-  final _TableStyles styles;
-
-  const _ProductDetail({
-    required this.label,
-    required this.value,
-    required this.styles,
-    this.isHighlighted = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '$label: ',
-          style: styles.labelStyle,
-        ),
-        Text(
-          value,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: isHighlighted
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurface,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  final String text;
-  final Color color;
-
-  const _StatusBadge({
-    required this.text,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            color.withOpacity(0.2),
-            color.withOpacity(0.1),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.3),
-                  blurRadius: 4,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            text.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Pagination extends StatelessWidget {
+class _OptimizedPagination extends StatelessWidget {
   final int currentPage;
   final int totalPages;
   final Function(int)? onPageChanged;
 
-  const _Pagination({
+  const _OptimizedPagination({
     required this.currentPage,
     required this.totalPages,
     this.onPageChanged,
@@ -790,9 +612,8 @@ class _Pagination extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -802,20 +623,7 @@ class _Pagination extends StatelessWidget {
                 ? () => onPageChanged?.call(currentPage - 1)
                 : null,
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'Page $currentPage of $totalPages',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
+          Text('$currentPage / $totalPages'),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: currentPage < totalPages

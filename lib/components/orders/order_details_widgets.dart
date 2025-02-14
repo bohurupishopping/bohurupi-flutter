@@ -65,7 +65,6 @@ class _DetailStyles {
 
 @immutable
 class DetailCard extends StatelessWidget {
-  static const double _borderRadius = 16.0;
   static const EdgeInsets _headerPadding = EdgeInsets.fromLTRB(16, 16, 16, 12);
   static const EdgeInsets _iconPadding = EdgeInsets.all(8);
 
@@ -410,7 +409,7 @@ class ProductImage extends StatelessWidget {
             imageUrl: imageUrl,
             fit: BoxFit.cover,
             placeholder: (context, url) => Container(
-              color: theme.colorScheme.surfaceVariant,
+              color: theme.colorScheme.surfaceContainerHighest,
               child: const Center(
                 child: SizedBox(
                   width: 24,

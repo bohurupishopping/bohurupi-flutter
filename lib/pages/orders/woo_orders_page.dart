@@ -139,6 +139,7 @@ class WooOrdersPage extends HookConsumerWidget {
 
   static const Duration _cacheDuration = Duration(minutes: 5);
   static const Duration _debounceDelay = Duration(milliseconds: 300);
+  static const double _smallScreenThreshold = 600;
 
   // Memoized status color mapping
   static const Map<String, Color> _statusColors = {
@@ -160,9 +161,13 @@ class WooOrdersPage extends HookConsumerWidget {
     final theme = Theme.of(context);
     final state = ref.watch(wooOrdersProvider);
     final lastFetchTime = ref.watch(wooOrdersCacheTimeProvider);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 600;
-    final styles = _PageStyles.from(theme, isSmallScreen);
+    
+    // Memoize screen size calculations
+    final screenWidth = useMemoized(() => MediaQuery.of(context).size.width, [MediaQuery.of(context)]);
+    final isSmallScreen = useMemoized(() => screenWidth < _smallScreenThreshold, [screenWidth]);
+    
+    // Memoize styles to prevent recalculation on every build
+    final styles = useMemoized(() => _PageStyles.from(theme, isSmallScreen), [theme, isSmallScreen]);
 
     // Memoize cache validation function
     final isCacheValid = useCallback(() {
@@ -171,7 +176,8 @@ class WooOrdersPage extends HookConsumerWidget {
       return now.difference(lastFetchTime) < _cacheDuration;
     }, [lastFetchTime]);
 
-    // Debounced search function
+    // Debounced search controller
+    final searchController = useTextEditingController();
     final searchDebouncer = useRef<Timer?>(null);
 
     // Load orders on first build using useEffect for better performance
@@ -209,337 +215,216 @@ class WooOrdersPage extends HookConsumerWidget {
     );
 
     // Cleanup debouncer on dispose
-    useEffect(() {
-      return () {
-        searchDebouncer.value?.cancel();
-      };
-    }, const []);
+    useEffect(() => () => searchDebouncer.value?.cancel(), const []);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
-        child: Stack(
-          children: [
-            Container(
-              decoration: styles.pageDecoration,
-            ),
-            Container(
-              margin: EdgeInsets.all(isSmallScreen ? 4 : 8),
-              decoration: styles.contentDecoration,
-              child: Column(
-                children: [
-                  Container(
-                    padding: EdgeInsets.fromLTRB(
-                      isSmallScreen ? 12 : 16,
-                      isSmallScreen ? 12 : 16,
-                      isSmallScreen ? 12 : 16,
-                      isSmallScreen ? 8 : 12,
-                    ),
-                    decoration: styles.headerDecoration,
-                    child: Column(
-                      children: [
-                        _buildHeaderTitle(styles, state, isSmallScreen, ref),
-                        SizedBox(height: isSmallScreen ? 8 : 12),
-                        _buildHeaderActions(styles, isSmallScreen, onSearch, onRefresh, state, ref),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: WooOrderTable(
-                      orders: state.orders,
-                      isLoading: state.isLoading,
-                      isSmallScreen: isSmallScreen,
-                      onOrderSelect: (orderJson) {
-                        ref.read(wooOrdersProvider.notifier).selectOrder(orderJson);
-                      },
-                      onRefresh: onRefresh,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (state.isDialogOpen && state.selectedOrder != null)
-              WooOrderDetailsDialog(
-                order: state.selectedOrder!.toJson(),
-                isOpen: state.isDialogOpen,
-                onOpenChange: (isOpen) {
-                  if (!isOpen) {
-                    ref.read(wooOrdersProvider.notifier).closeDialog();
-                  }
-                },
-              ),
-          ],
+        child: _OptimizedPageContent(
+          styles: styles,
+          isSmallScreen: isSmallScreen,
+          state: state,
+          onSearch: onSearch,
+          onRefresh: onRefresh,
+          searchController: searchController,
         ),
       ),
       floatingActionButton: const FloatingNavBar(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
+}
 
-  Widget _buildHeaderTitle(_PageStyles styles, dynamic state, bool isSmallScreen, WidgetRef ref) {
-    return Row(
+@immutable
+class _OptimizedPageContent extends StatelessWidget {
+  final _PageStyles styles;
+  final bool isSmallScreen;
+  final dynamic state;
+  final Function(String) onSearch;
+  final Future<void> Function() onRefresh;
+  final TextEditingController searchController;
+
+  const _OptimizedPageContent({
+    required this.styles,
+    required this.isSmallScreen,
+    required this.state,
+    required this.onSearch,
+    required this.onRefresh,
+    required this.searchController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
       children: [
+        RepaintBoundary(
+          child: DecoratedBox(
+            decoration: styles.pageDecoration,
+          ),
+        ),
         Container(
-          padding: EdgeInsets.all(isSmallScreen ? 4 : 6),
-          decoration: styles.titleDecoration,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          margin: EdgeInsets.all(isSmallScreen ? 4 : 8),
+          decoration: styles.contentDecoration,
+          child: Column(
             children: [
-              Container(
-                padding: EdgeInsets.all(isSmallScreen ? 4 : 6),
-                decoration: styles.buttonDecoration,
-                child: FaIcon(
-                  FontAwesomeIcons.store,
-                  size: isSmallScreen ? 10 : 12,
-                  color: styles.titleStyle.color,
+              RepaintBoundary(
+                child: _OptimizedHeader(
+                  styles: styles,
+                  isSmallScreen: isSmallScreen,
+                  state: state,
+                  onSearch: onSearch,
+                  onRefresh: onRefresh,
+                  searchController: searchController,
                 ),
               ),
-              SizedBox(width: isSmallScreen ? 6 : 8),
-              Text(
-                'WooCommerce Orders',
-                style: styles.titleStyle,
+              Expanded(
+                child: RepaintBoundary(
+                  child: WooOrderTable(
+                    orders: state.orders,
+                    isLoading: state.isLoading,
+                    onOrderSelect: (order) {
+                      showDialog(
+                        context: context,
+                        useSafeArea: false,
+                        builder: (context) => WooOrderDetailsDialog(
+                          order: order,
+                          isOpen: true,
+                          onOpenChange: (isOpen) {
+                            if (!isOpen) Navigator.of(context).pop();
+                          },
+                        ),
+                      );
+                    },
+                    isSmallScreen: isSmallScreen,
+                    onRefresh: onRefresh,
+                  ),
+                ),
               ),
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+@immutable
+class _OptimizedHeader extends StatelessWidget {
+  final _PageStyles styles;
+  final bool isSmallScreen;
+  final dynamic state;
+  final Function(String) onSearch;
+  final Future<void> Function() onRefresh;
+  final TextEditingController searchController;
+
+  const _OptimizedHeader({
+    required this.styles,
+    required this.isSmallScreen,
+    required this.state,
+    required this.onSearch,
+    required this.onRefresh,
+    required this.searchController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 8 : 12,
+      ),
+      decoration: styles.headerDecoration,
+      child: Column(
+        children: [
+          _buildTitle(context),
+          SizedBox(height: isSmallScreen ? 8 : 12),
+          _buildActions(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTitle(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 12 : 16,
+            vertical: isSmallScreen ? 8 : 10,
+          ),
+          decoration: styles.titleDecoration,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FaIcon(
+                FontAwesomeIcons.boxOpen,
+                size: isSmallScreen ? 14 : 16,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              SizedBox(width: isSmallScreen ? 6 : 8),
+              Text('WooCommerce Orders', style: styles.titleStyle),
+            ],
+          ),
+        ),
         const Spacer(),
-        _buildPerPageDropdown(styles, state, isSmallScreen, ref),
-        SizedBox(width: isSmallScreen ? 6 : 8),
-        _buildOrderCount(styles, state, isSmallScreen),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: styles.countDecoration,
+          child: Text(
+            '${state.orders.length} Orders',
+            style: styles.countStyle,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildHeaderActions(
-    _PageStyles styles,
-    bool isSmallScreen,
-    Function(String) onSearch,
-    Future<void> Function() onRefresh,
-    dynamic state,
-    WidgetRef ref,
-  ) {
+  Widget _buildActions(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: _buildSearchField(styles, isSmallScreen, onSearch),
+          child: Container(
+            height: isSmallScreen ? 36 : 40,
+            decoration: styles.searchDecoration,
+            child: TextField(
+              controller: searchController,
+              onChanged: onSearch,
+              style: styles.searchStyle,
+              decoration: InputDecoration(
+                hintText: 'Search orders...',
+                hintStyle: styles.searchHintStyle,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                prefixIcon: Icon(
+                  Iconsax.search_normal,
+                  size: isSmallScreen ? 16 : 18,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            ),
+          ),
         ),
-        SizedBox(width: isSmallScreen ? 6 : 8),
-        _buildFilterButton(styles, isSmallScreen, state, ref),
-        SizedBox(width: isSmallScreen ? 6 : 8),
-        _buildRefreshButton(styles, isSmallScreen, onRefresh),
+        const SizedBox(width: 8),
+        _buildRefreshButton(context),
       ],
     );
   }
 
-  Widget _buildSearchField(_PageStyles styles, bool isSmallScreen, Function(String) onSearch) {
+  Widget _buildRefreshButton(BuildContext context) {
     return Container(
-      height: isSmallScreen ? 32 : 36,
-      decoration: styles.searchDecoration,
-      child: TextField(
-        onChanged: onSearch,
-        style: styles.searchStyle,
-        decoration: InputDecoration(
-          hintText: 'Search orders...',
-          hintStyle: styles.searchHintStyle,
-          prefixIcon: Icon(
-            Iconsax.search_normal,
-            size: isSmallScreen ? 14 : 16,
-            color: styles.searchHintStyle.color,
-          ),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: isSmallScreen ? 8 : 12,
-            vertical: isSmallScreen ? 6 : 8,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterButton(_PageStyles styles, bool isSmallScreen, dynamic state, WidgetRef ref) {
-    return FilledButton.tonal(
-      onPressed: () => _showFilterBottomSheet(styles, state, ref),
-      style: FilledButton.styleFrom(
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 8 : 12,
-          vertical: isSmallScreen ? 6 : 8,
-        ),
-        visualDensity: VisualDensity.compact,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Iconsax.filter,
-            size: isSmallScreen ? 10 : 12,
-          ),
-          SizedBox(width: isSmallScreen ? 6 : 8),
-          Text(
-            'Filter',
-            style: styles.labelStyle,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRefreshButton(_PageStyles styles, bool isSmallScreen, Future<void> Function() onRefresh) {
-    return FilledButton.tonal(
-      onPressed: onRefresh,
-      style: FilledButton.styleFrom(
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 8 : 12,
-          vertical: isSmallScreen ? 6 : 8,
-        ),
-        visualDensity: VisualDensity.compact,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Iconsax.refresh,
-            size: isSmallScreen ? 10 : 12,
-          ),
-          SizedBox(width: isSmallScreen ? 6 : 8),
-          Text(
-            'Refresh',
-            style: styles.labelStyle,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPerPageDropdown(_PageStyles styles, dynamic state, bool isSmallScreen, WidgetRef ref) {
-    return Container(
-      height: isSmallScreen ? 24 : 28,
-      padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 4 : 6),
+      height: isSmallScreen ? 36 : 40,
       decoration: styles.buttonDecoration,
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<int>(
-          value: state.perPage,
-          isDense: true,
-          borderRadius: BorderRadius.circular(8),
-          items: [50, 100, 200].map((int value) {
-            return DropdownMenuItem<int>(
-              value: value,
-              child: Text(
-                '$value',
-                style: styles.labelStyle,
-              ),
-            );
-          }).toList(),
-          onChanged: (int? newValue) {
-            if (newValue != null) {
-              ref.read(wooOrdersProvider.notifier).setPerPage(newValue);
-            }
-          },
-          icon: Icon(
-            Iconsax.arrow_down_1,
-            size: isSmallScreen ? 12 : 14,
-            color: styles.labelStyle.color?.withOpacity(0.5),
-          ),
+      child: IconButton(
+        onPressed: onRefresh,
+        icon: Icon(
+          Icons.refresh,
+          size: isSmallScreen ? 18 : 20,
+          color: Theme.of(context).colorScheme.secondary,
         ),
+        tooltip: 'Refresh Orders',
       ),
-    );
-  }
-
-  Widget _buildOrderCount(_PageStyles styles, dynamic state, bool isSmallScreen) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 6 : 8,
-        vertical: isSmallScreen ? 3 : 4,
-      ),
-      decoration: styles.countDecoration,
-      child: Text(
-        '${state.orders.length} Orders',
-        style: styles.countStyle,
-      ),
-    );
-  }
-
-  void _showFilterBottomSheet(_PageStyles styles, dynamic state, WidgetRef ref) {
-    showModalBottomSheet(
-      context: ref.context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(20),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              width: 32,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Filter Orders',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ..._filterOptions.map((status) => _buildFilterOption(context, status, state, ref)),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterOption(BuildContext context, String status, dynamic state, WidgetRef ref) {
-    final theme = Theme.of(context);
-    return ListTile(
-      selected: state.statusFilter == status,
-      selectedColor: theme.colorScheme.primary,
-      selectedTileColor: theme.colorScheme.primary.withOpacity(0.1),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: status == 'all'
-              ? theme.colorScheme.primary.withOpacity(0.1)
-              : _statusColors[status]?.withOpacity(0.1) ?? Colors.grey.withOpacity(0.1),
-          shape: BoxShape.circle,
-        ),
-        child: FaIcon(
-          status == 'all'
-              ? FontAwesomeIcons.list
-              : status == 'pending'
-                  ? FontAwesomeIcons.clock
-                  : status == 'processing'
-                      ? FontAwesomeIcons.spinner
-                      : FontAwesomeIcons.check,
-          size: 14,
-          color: status == 'all'
-              ? theme.colorScheme.primary
-              : _statusColors[status] ?? Colors.grey,
-        ),
-      ),
-      title: Text(
-        status == 'all'
-            ? 'All Orders'
-            : status.substring(0, 1).toUpperCase() + status.substring(1),
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      onTap: () {
-        ref.read(wooOrdersProvider.notifier).setStatusFilter(status);
-        Navigator.pop(context);
-      },
     );
   }
 } 

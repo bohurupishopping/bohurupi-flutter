@@ -40,97 +40,79 @@ class _TableStyles {
     return _TableStyles(
       cardDecoration: BoxDecoration(
         color: surfaceOpacity95,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: primaryOpacity01,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.shadow.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      headerDecoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            primaryOpacity015,
-            primaryOpacity01,
-          ],
-        ),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.08),
+          width: 0.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: primaryOpacity01,
+            color: theme.colorScheme.shadow.withOpacity(0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      customerInfoDecoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(12),
+      headerDecoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: primaryOpacity01,
+          color: theme.colorScheme.outline.withOpacity(0.08),
+          width: 0.5,
+        ),
+      ),
+      customerInfoDecoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.08),
+          width: 0.5,
         ),
       ),
       statusBadgeDecoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       iconContainerDecoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            primaryOpacity015,
-            primaryOpacity01,
-          ],
-        ),
+        color: theme.colorScheme.primaryContainer.withOpacity(0.5),
         shape: BoxShape.circle,
       ),
       priceBadgeDecoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            primaryOpacity015,
-            primaryOpacity01,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
+        color: theme.colorScheme.primaryContainer.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: primaryOpacity01,
             blurRadius: 4,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       titleStyle: theme.textTheme.titleSmall?.copyWith(
-        fontWeight: FontWeight.bold,
-        fontSize: isSmallScreen ? 13 : 15,
+        fontWeight: FontWeight.w600,
+        fontSize: isSmallScreen ? 12 : 14,
+        letterSpacing: 0.1,
       ) ?? const TextStyle(),
       dateStyle: theme.textTheme.bodySmall?.copyWith(
         color: theme.colorScheme.onSurface.withOpacity(0.6),
-        fontSize: isSmallScreen ? 11 : 13,
+        fontSize: isSmallScreen ? 10 : 12,
+        letterSpacing: 0.1,
       ) ?? const TextStyle(),
       customerNameStyle: theme.textTheme.bodyMedium?.copyWith(
         color: theme.colorScheme.onSurface.withOpacity(0.8),
-        fontSize: isSmallScreen ? 12 : 14,
+        fontSize: isSmallScreen ? 11 : 13,
         fontWeight: FontWeight.w500,
+        letterSpacing: 0.1,
       ) ?? const TextStyle(),
       statusStyle: theme.textTheme.labelSmall?.copyWith(
         fontWeight: FontWeight.w600,
-        letterSpacing: 0.5,
-        fontSize: isSmallScreen ? 9 : 11,
+        letterSpacing: 0.4,
+        fontSize: isSmallScreen ? 8 : 10,
       ) ?? const TextStyle(),
       priceStyle: theme.textTheme.titleSmall?.copyWith(
         fontWeight: FontWeight.w600,
         color: theme.colorScheme.primary,
-        fontSize: isSmallScreen ? 12 : 14,
+        fontSize: isSmallScreen ? 11 : 13,
+        letterSpacing: 0.1,
       ) ?? const TextStyle(),
     );
   }
@@ -356,25 +338,25 @@ class _OrderCard extends StatelessWidget {
     return Hero(
       tag: 'order-${order.id}',
       child: Card(
-        margin: EdgeInsets.only(bottom: isSmallScreen ? 8 : 12),
+        margin: EdgeInsets.only(bottom: isSmallScreen ? 6 : 8),
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+              padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
               decoration: styles.cardDecoration,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildHeader(),
-                  SizedBox(height: isSmallScreen ? 8 : 12),
+                  SizedBox(height: isSmallScreen ? 6 : 8),
                   _buildCustomerInfo(),
                 ],
               ),
@@ -389,15 +371,15 @@ class _OrderCard extends StatelessWidget {
     return Row(
       children: [
         Container(
-          padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
+          padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
           decoration: styles.headerDecoration,
           child: FaIcon(
             FontAwesomeIcons.boxOpen,
-            size: isSmallScreen ? 14 : 16,
+            size: isSmallScreen ? 12 : 14,
             color: statusColor,
           ),
         ),
-        SizedBox(width: isSmallScreen ? 8 : 12),
+        SizedBox(width: isSmallScreen ? 6 : 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,7 +389,7 @@ class _OrderCard extends StatelessWidget {
                 'Order #${order.number}',
                 style: styles.titleStyle,
               ),
-              SizedBox(height: isSmallScreen ? 2 : 4),
+              SizedBox(height: isSmallScreen ? 1 : 2),
               Text(
                 DateFormat('MMM d, y').format(
                   DateTime.parse(order.dateCreated),
@@ -424,7 +406,7 @@ class _OrderCard extends StatelessWidget {
 
   Widget _buildCustomerInfo() {
     return Container(
-      padding: EdgeInsets.all(isSmallScreen ? 10 : 14),
+      padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
       decoration: styles.customerInfoDecoration,
       child: Row(
         children: [
@@ -432,15 +414,15 @@ class _OrderCard extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
+                  padding: EdgeInsets.all(isSmallScreen ? 4 : 6),
                   decoration: styles.iconContainerDecoration,
                   child: FaIcon(
                     FontAwesomeIcons.user,
-                    size: isSmallScreen ? 12 : 14,
+                    size: isSmallScreen ? 10 : 12,
                     color: statusColor,
                   ),
                 ),
-                SizedBox(width: isSmallScreen ? 8 : 10),
+                SizedBox(width: isSmallScreen ? 6 : 8),
                 Expanded(
                   child: Text(
                     '${order.billing.firstName} ${order.billing.lastName}',
@@ -453,8 +435,8 @@ class _OrderCard extends StatelessWidget {
           ),
           Container(
             padding: EdgeInsets.symmetric(
-              horizontal: isSmallScreen ? 8 : 10,
-              vertical: isSmallScreen ? 4 : 6,
+              horizontal: isSmallScreen ? 6 : 8,
+              vertical: isSmallScreen ? 3 : 4,
             ),
             decoration: styles.priceBadgeDecoration,
             child: Text(
@@ -470,46 +452,35 @@ class _OrderCard extends StatelessWidget {
   Widget _buildStatusBadge() {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 8 : 10,
-        vertical: isSmallScreen ? 4 : 6,
+        horizontal: isSmallScreen ? 6 : 8,
+        vertical: isSmallScreen ? 3 : 4,
       ),
       decoration: styles.statusBadgeDecoration.copyWith(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            statusColor.withOpacity(0.15),
-            statusColor.withOpacity(0.1),
-          ],
-        ),
+        color: statusColor.withOpacity(0.1),
         border: Border.all(
           color: statusColor.withOpacity(0.2),
+          width: 0.5,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: isSmallScreen ? 6 : 8,
-            height: isSmallScreen ? 6 : 8,
+            width: isSmallScreen ? 4 : 6,
+            height: isSmallScreen ? 4 : 6,
             decoration: BoxDecoration(
-              gradient: RadialGradient(
-                colors: [
-                  statusColor,
-                  statusColor.withOpacity(0.8),
-                ],
-              ),
+              color: statusColor,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
                   color: statusColor.withOpacity(0.3),
                   blurRadius: 4,
-                  spreadRadius: 1,
+                  spreadRadius: 0,
                 ),
               ],
             ),
           ),
-          SizedBox(width: isSmallScreen ? 4 : 6),
+          SizedBox(width: isSmallScreen ? 3 : 4),
           Text(
             order.status.toUpperCase(),
             style: styles.statusStyle.copyWith(color: statusColor),

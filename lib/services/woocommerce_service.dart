@@ -140,12 +140,4 @@ class WooCommerceService {
     return parts.join(', ');
   }
 
-  /// Extract meta value from WooCommerce meta data
-  String? _extractMetaValue(List<dynamic> metaData, String key) {
-    final meta = metaData.firstWhere(
-      (item) => item['key'] == key,
-      orElse: () => null,
-    );
-    return meta?['value'];
-  }
 } 

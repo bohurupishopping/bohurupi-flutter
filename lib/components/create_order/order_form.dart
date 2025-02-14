@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -31,7 +33,6 @@ class OrderForm extends HookConsumerWidget {
     final theme = Theme.of(context);
     final mediaQuery = MediaQuery.of(context);
     final isSmallScreen = mediaQuery.size.width < 600;
-    final formPadding = mediaQuery.padding + const EdgeInsets.all(_kSpacing);
     
     // Form state using hooks with proper cleanup
     final formKey = useMemoized(() => GlobalKey<FormState>(), const []);

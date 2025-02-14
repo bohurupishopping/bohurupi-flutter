@@ -1,9 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'dart:ui';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:intl/intl.dart';
@@ -279,17 +276,13 @@ class FirebaseOrderDetailsDialog extends HookConsumerWidget {
       onOpenChange(false);
     }, const []);
 
-    return GestureDetector(
-      onVerticalDragEnd: (details) {
-        if (details.primaryVelocity! > 500) {
-          handleDismiss();
-        }
-      },
-      child: Material(
-        color: Colors.transparent,
-        child: Stack(
-          children: [
-            AnimatedBuilder(
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          // Scrim layer with optimized animation
+          RepaintBoundary(
+            child: AnimatedBuilder(
               animation: fadeAnimation,
               builder: (context, _) => GestureDetector(
                 onTap: handleDismiss,
@@ -298,32 +291,37 @@ class FirebaseOrderDetailsDialog extends HookConsumerWidget {
                 ),
               ),
             ),
-            SlideTransition(
+          ),
+
+          // Dialog content with optimized slide animation
+          RepaintBoundary(
+            child: SlideTransition(
               position: slideAnimation,
               child: SafeArea(
                 child: Column(
                   children: [
                     const _DragHandle(),
                     Expanded(
-                      child: Container(
-                        decoration: styles.dialogDecoration,
-                        child: Column(
-                          children: [
-                            _OrderHeader(
-                              order: order,
-                              statusColor: statusColor,
-                              orderStatusColor: orderStatusColor,
-                              onClose: handleDismiss,
-                              styles: styles,
-                            ),
-                            Expanded(
-                              child: _OrderContent(
+                      child: RepaintBoundary(
+                        child: _OptimizedDialogContainer(
+                          child: Column(
+                            children: [
+                              _OrderHeader(
                                 order: order,
-                                onTrackOrder: () => isTrackingOpen.value = true,
+                                statusColor: statusColor,
+                                orderStatusColor: orderStatusColor,
+                                onClose: handleDismiss,
                                 styles: styles,
                               ),
-                            ),
-                          ],
+                              Expanded(
+                                child: _OrderContent(
+                                  order: order,
+                                  onTrackOrder: () => isTrackingOpen.value = true,
+                                  styles: styles,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -331,9 +329,44 @@ class FirebaseOrderDetailsDialog extends HookConsumerWidget {
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+// New widget to optimize container decorations
+@immutable
+class _OptimizedDialogContainer extends StatelessWidget {
+  final Widget child;
+
+  const _OptimizedDialogContainer({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withOpacity(0.95),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+        border: Border.all(
+          color: theme.colorScheme.primary.withOpacity(0.1),
+          width: 0.5,
+        ),
+        // Simplified shadow for better performance
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }
@@ -391,74 +424,76 @@ class _OrderHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: styles.headerDecoration,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              IconButton.filledTonal(
-                onPressed: onClose,
-                icon: const Icon(Icons.arrow_back, size: 18),
-                style: IconButton.styleFrom(
-                  backgroundColor: theme.colorScheme.secondaryContainer.withOpacity(0.7),
-                  foregroundColor: theme.colorScheme.onSecondaryContainer,
-                  padding: const EdgeInsets.all(8),
-                  minimumSize: const Size(32, 32),
+      child: RepaintBoundary(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                IconButton.filledTonal(
+                  onPressed: onClose,
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  style: IconButton.styleFrom(
+                    backgroundColor: theme.colorScheme.secondaryContainer.withOpacity(0.7),
+                    foregroundColor: theme.colorScheme.onSecondaryContainer,
+                    padding: const EdgeInsets.all(8),
+                    minimumSize: const Size(32, 32),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: styles.orderIdDecoration,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.shopping_bag_outlined,
+                        size: 14,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '#${order.orderId}',
+                        style: styles.orderIdStyle,
+                      ),
+                    ],
+                  ),
                 ),
-                decoration: styles.orderIdDecoration,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.shopping_bag_outlined,
-                      size: 14,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '#${order.orderId}',
-                      style: styles.orderIdStyle,
-                    ),
-                  ],
+                const Spacer(),
+                Text(
+                  order.customerName,
+                  style: styles.titleStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const Spacer(),
-              Text(
-                order.customerName,
-                style: styles.titleStyle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: styles.dateDecoration,
+                  child: Text(
+                    FirebaseOrderUtils.formatDate(order.createdAt),
+                    style: styles.dateStyle,
+                  ),
                 ),
-                decoration: styles.dateDecoration,
-                child: Text(
-                  FirebaseOrderUtils.formatDate(order.createdAt),
-                  style: styles.dateStyle,
-                ),
-              ),
-              const Spacer(),
-              _buildStatusBadge(theme, order.status, statusColor),
-              const SizedBox(width: 8),
-              _buildStatusBadge(theme, order.orderstatus, orderStatusColor),
-            ],
-          ),
-        ],
+                const Spacer(),
+                _buildStatusBadge(theme, order.status, statusColor),
+                const SizedBox(width: 8),
+                _buildStatusBadge(theme, order.orderstatus, orderStatusColor),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -71,63 +71,83 @@ class OrderTrackingDialog extends HookConsumerWidget {
       onOpenChange(false);
     }, const []);
 
-    // Pre-calculate opacity values
-    const surfaceOpacity = 0.95;
-    final borderColor = theme.colorScheme.primary.withOpacity(0.1);
-
     return Material(
       color: Colors.transparent,
       child: Stack(
         children: [
-          // Semi-transparent background
-          AnimatedBuilder(
-            animation: fadeAnimation,
-            builder: (context, _) => GestureDetector(
-              onTap: handleDismiss,
-              child: Container(
-                color: theme.colorScheme.scrim.withOpacity(0.32 * fadeAnimation.value),
+          // Scrim layer with optimized animation
+          RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: fadeAnimation,
+              builder: (context, _) => GestureDetector(
+                onTap: handleDismiss,
+                child: Container(
+                  color: theme.colorScheme.scrim.withOpacity(0.32 * fadeAnimation.value),
+                ),
               ),
             ),
           ),
 
-          // Dialog Content
-          SlideTransition(
-            position: slideAnimation,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  const _DragHandle(),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface.withOpacity(surfaceOpacity),
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(_borderRadius),
-                        ),
-                        border: Border.all(
-                          color: borderColor,
-                          width: 0.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.shadow.withOpacity(0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, -5),
+          // Dialog content with optimized slide animation
+          RepaintBoundary(
+            child: SlideTransition(
+              position: slideAnimation,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    const _DragHandle(),
+                    Expanded(
+                      child: RepaintBoundary(
+                        child: _OptimizedDialogContainer(
+                          child: _TrackingDialogContent(
+                            trackingId: trackingId,
+                            onClose: handleDismiss,
                           ),
-                        ],
-                      ),
-                      child: _TrackingDialogContent(
-                        trackingId: trackingId,
-                        onClose: handleDismiss,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// New widget to optimize container decorations
+@immutable
+class _OptimizedDialogContainer extends StatelessWidget {
+  final Widget child;
+
+  const _OptimizedDialogContainer({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withOpacity(0.95),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(OrderTrackingDialog._borderRadius),
+        ),
+        border: Border.all(
+          color: theme.colorScheme.primary.withOpacity(0.1),
+          width: 0.5,
+        ),
+        // Simplified shadow for better performance
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }
@@ -169,30 +189,34 @@ class _TrackingDialogContent extends HookConsumerWidget {
       onVerticalDragEnd: (details) {
         if (details.primaryVelocity! > 500) onClose();
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(20),
+      child: RepaintBoundary(
+        child: Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(20),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            _buildHeader(theme),
-            Expanded(
-              child: trackingData.when(
-                data: (data) => _TrackingContent(
-                  data: data,
-                  onRefresh: () => ref.refresh(trackingDataProvider(trackingId).future),
-                ),
-                loading: () => const _LoadingIndicator(),
-                error: (error, _) => _ErrorView(
-                  error: error,
-                  onClose: onClose,
+          child: Column(
+            children: [
+              RepaintBoundary(
+                child: _buildHeader(theme),
+              ),
+              Expanded(
+                child: trackingData.when(
+                  data: (data) => _TrackingContent(
+                    data: data,
+                    onRefresh: () => ref.refresh(trackingDataProvider(trackingId).future),
+                  ),
+                  loading: () => const _LoadingIndicator(),
+                  error: (error, _) => _ErrorView(
+                    error: error,
+                    onClose: onClose,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -331,28 +355,36 @@ class _TrackingContent extends StatelessWidget {
     final shipment = data.shipmentData[0].shipment;
     final statusColor = _TrackingUtils.getStatusColor(shipment.status.status);
 
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _StatusCard(shipment: shipment, statusColor: statusColor),
-                const SizedBox(height: 16),
-                if (shipment.estimatedDeliveryDate != null) ...[
-                  _EstimatedDeliveryCard(shipment: shipment),
+    return RepaintBoundary(
+      child: RefreshIndicator(
+        onRefresh: onRefresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  RepaintBoundary(
+                    child: _StatusCard(shipment: shipment, statusColor: statusColor),
+                  ),
                   const SizedBox(height: 16),
-                ],
-                const _TrackingHistoryHeader(),
-                const SizedBox(height: 12),
-                _TrackingHistory(shipment: shipment),
-              ]),
+                  if (shipment.estimatedDeliveryDate != null) ...[
+                    RepaintBoundary(
+                      child: _EstimatedDeliveryCard(shipment: shipment),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  const RepaintBoundary(child: _TrackingHistoryHeader()),
+                  const SizedBox(height: 12),
+                  RepaintBoundary(
+                    child: _TrackingHistory(shipment: shipment),
+                  ),
+                ]),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -15,7 +15,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    // Load dashboard data when the page is initialized
     Future.microtask(() => ref.read(dashboardProvider.notifier).loadDashboardData());
   }
 
@@ -30,47 +29,83 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
-        child: dashboardState.isLoading && dashboardState.stats.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : dashboardState.error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('Error: ${dashboardState.error}'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _handleRefresh,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _handleRefresh,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const DashboardHeader(),
-                          const SizedBox(height: 24),
-                          DashboardStats(stats: dashboardState.stats),
-                          if (dashboardState.isLoading)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(16.0),
-                                child: CircularProgressIndicator(),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
+        child: _buildBody(dashboardState),
       ),
       floatingActionButton: const FloatingNavBar(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildBody(DashboardState dashboardState) {
+    if (dashboardState.isLoading && dashboardState.stats.isEmpty) {
+      return const _LoadingIndicator();
+    }
+    
+    if (dashboardState.error != null) {
+      return _ErrorView(
+        error: dashboardState.error!,
+        onRetry: _handleRefresh,
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16.0),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                const RepaintBoundary(child: DashboardHeader()),
+                const SizedBox(height: 24),
+                RepaintBoundary(
+                  child: DashboardStats(
+                    key: ValueKey(dashboardState.stats.hashCode),
+                    stats: dashboardState.stats,
+                  ),
+                ),
+                if (dashboardState.isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: _LoadingIndicator()),
+                  ),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadingIndicator extends StatelessWidget {
+  const _LoadingIndicator();
+
+  @override
+  Widget build(BuildContext context) => const Center(child: CircularProgressIndicator());
+}
+
+class _ErrorView extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+
+  const _ErrorView({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Error: $error'),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onRetry,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -80,6 +115,8 @@ class DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -88,20 +125,20 @@ class DashboardHeader extends StatelessWidget {
           children: [
             Text(
               'Dashboard',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             Text(
               'Welcome back!',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey,
-                  ),
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: Colors.grey,
+              ),
             ),
           ],
         ),
         CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: theme.colorScheme.primary,
           child: const Icon(Icons.person, color: Colors.white),
         ),
       ],
@@ -111,45 +148,73 @@ class DashboardHeader extends StatelessWidget {
 
 class DashboardStats extends StatelessWidget {
   final Map<String, dynamic> stats;
+  static const double _spacing = 16.0;
+  static const int _crossAxisCount = 2;
+  static const double _childAspectRatio = 2.0;
 
   const DashboardStats({super.key, required this.stats});
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 2.0,
-      padding: EdgeInsets.zero,
-      children: [
-        StatCard(
-          title: 'Total Orders',
-          value: stats['totalOrders']?.toString() ?? '0',
-          icon: FontAwesomeIcons.boxOpen,
-          color: Colors.blue,
-        ),
-        StatCard(
-          title: 'Pending Orders',
-          value: stats['pendingOrders']?.toString() ?? '0',
-          icon: FontAwesomeIcons.clockRotateLeft,
-          color: Colors.orange,
-        ),
-        StatCard(
-          title: 'Completed Orders',
-          value: stats['completedOrders']?.toString() ?? '0',
-          icon: FontAwesomeIcons.check,
-          color: Colors.green,
-        ),
-        StatCard(
-          title: 'Total Sales',
-          value: '\$${((stats['totalSales'] as num?) ?? 0.0).toStringAsFixed(2)}',
-          icon: FontAwesomeIcons.dollarSign,
-          color: Colors.purple,
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = (constraints.maxWidth - _spacing) / _crossAxisCount;
+        final itemHeight = itemWidth / _childAspectRatio;
+
+        return Wrap(
+          spacing: _spacing,
+          runSpacing: _spacing,
+          children: [
+            _buildStatCard(
+              'Total Orders',
+              stats['totalOrders']?.toString() ?? '0',
+              FontAwesomeIcons.boxOpen,
+              Colors.blue,
+              itemWidth,
+              itemHeight,
+            ),
+            _buildStatCard(
+              'Pending Orders',
+              stats['pendingOrders']?.toString() ?? '0',
+              FontAwesomeIcons.clockRotateLeft,
+              Colors.orange,
+              itemWidth,
+              itemHeight,
+            ),
+            _buildStatCard(
+              'Completed Orders',
+              stats['completedOrders']?.toString() ?? '0',
+              FontAwesomeIcons.check,
+              Colors.green,
+              itemWidth,
+              itemHeight,
+            ),
+            _buildStatCard(
+              'Total Sales',
+              '\$${((stats['totalSales'] as num?) ?? 0.0).toStringAsFixed(2)}',
+              FontAwesomeIcons.dollarSign,
+              Colors.purple,
+              itemWidth,
+              itemHeight,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color,
+      double width, double height) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: StatCard(
+        key: ValueKey('$title-$value'),
+        title: title,
+        value: value,
+        icon: icon,
+        color: color,
+      ),
     );
   }
 }
@@ -170,43 +235,50 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    final theme = Theme.of(context);
+    final colorWithOpacity = color.withOpacity(0.1);
+    
+    return RepaintBoundary(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorWithOpacity,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: color, size: 16),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              Row(
+                children: [
+                  Icon(icon, color: color, size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: theme.textTheme.labelMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
