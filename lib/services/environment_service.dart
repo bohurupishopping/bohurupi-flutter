@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
-/// Service responsible for managing environment configuration
+/// Service responsible for managing environment configuration and authentication
 class EnvironmentService {
   // Private constructor
   EnvironmentService._() {
@@ -24,10 +24,11 @@ class EnvironmentService {
 
   // Authentication token cache
   String? _cachedAuthToken;
+  DateTime? _tokenExpiryTime;
 
   void _initialize() {
     // Generate auth token at initialization
-    _cachedAuthToken = _getBasicAuth();
+    _getBasicAuth();
     
     if (kDebugMode) {
       print('Environment Service Initialized');
@@ -59,11 +60,18 @@ class EnvironmentService {
   String get baseUrl => isDevelopment ? devBaseUrl : prodBaseUrl;
 
   /// Gets the API headers with authentication
-  Map<String, String> get headers => {
-    'Content-Type': 'application/json',
-    'x-api-key': apiKey,
-    'Authorization': 'Basic ${_cachedAuthToken ?? _getBasicAuth()}',
-  };
+  Map<String, String> get headers {
+    // Check if token needs refresh (every 55 minutes)
+    if (_shouldRefreshToken) {
+      _cachedAuthToken = null;
+    }
+    
+    return {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'Authorization': 'Basic ${_cachedAuthToken ?? _getBasicAuth()}',
+    };
+  }
 
   /// Gets the API headers without authentication
   Map<String, String> get headersWithoutAuth => {
@@ -71,23 +79,45 @@ class EnvironmentService {
     'x-api-key': apiKey,
   };
 
-  /// Generates Basic Auth string
+  /// Check if token needs refresh (older than 55 minutes)
+  bool get _shouldRefreshToken {
+    if (_tokenExpiryTime == null || _cachedAuthToken == null) return true;
+    return DateTime.now().isAfter(_tokenExpiryTime!);
+  }
+
+  /// Generates Basic Auth string and sets expiry time
   String _getBasicAuth() {
-    if (_cachedAuthToken != null) return _cachedAuthToken!;
-    
-    final auth = '$adminEmail:$adminPassword';
-    final bytes = utf8.encode(auth);
-    _cachedAuthToken = base64.encode(bytes);
-    
-    if (kDebugMode) {
-      print('Generated new auth token');
+    if (_cachedAuthToken != null && !_shouldRefreshToken) {
+      return _cachedAuthToken!;
     }
     
-    return _cachedAuthToken!;
+    try {
+      final auth = '$adminEmail:$adminPassword';
+      final bytes = utf8.encode(auth);
+      _cachedAuthToken = base64.encode(bytes);
+      
+      // Set token to expire in 55 minutes
+      _tokenExpiryTime = DateTime.now().add(const Duration(minutes: 55));
+      
+      if (kDebugMode) {
+        print('Generated new auth token, expires: $_tokenExpiryTime');
+      }
+      
+      return _cachedAuthToken!;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error generating auth token: $e');
+      }
+      rethrow;
+    }
   }
 
   /// Clears the cached auth token
   void clearAuthToken() {
     _cachedAuthToken = null;
+    _tokenExpiryTime = null;
+    if (kDebugMode) {
+      print('Auth token cleared');
+    }
   }
 } 

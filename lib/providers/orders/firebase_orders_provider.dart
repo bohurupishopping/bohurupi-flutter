@@ -1,6 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../services/firebase_orders_service.dart';
-import '../../services/environment_service.dart';
 
 // Provider for the FirebaseOrdersService instance
 final firebaseOrdersServiceProvider = Provider<FirebaseOrdersService>((ref) {
