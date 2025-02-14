@@ -32,7 +32,7 @@ class MainApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch the environment service
-    final env = ref.watch(environmentProvider);
+    ref.watch(environmentProvider);
     
     return MaterialApp(
       debugShowCheckedModeBanner: false,

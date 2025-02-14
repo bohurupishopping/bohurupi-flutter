@@ -1,32 +1,73 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../components/common/floating_nav_bar.dart';
+import '../../providers/dashboard/dashboard_provider.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
   @override
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends ConsumerState<DashboardPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Load dashboard data when the page is initialized
+    Future.microtask(() => ref.read(dashboardProvider.notifier).loadDashboardData());
+  }
+
+  Future<void> _handleRefresh() async {
+    await ref.read(dashboardProvider.notifier).refresh();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final dashboardState = ref.watch(dashboardProvider);
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const DashboardHeader(),
-              const SizedBox(height: 24),
-              const DashboardStats(),
-              const SizedBox(height: 24),
-              const DashboardChart(),
-              const SizedBox(height: 24),
-              const RecentOrders(),
-              const SizedBox(height: 80),
-            ],
-          ),
-        ),
+        child: dashboardState.isLoading && dashboardState.stats.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : dashboardState.error != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Error: ${dashboardState.error}'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _handleRefresh,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _handleRefresh,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const DashboardHeader(),
+                          const SizedBox(height: 24),
+                          DashboardStats(stats: dashboardState.stats),
+                          if (dashboardState.isLoading)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
       ),
       floatingActionButton: const FloatingNavBar(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -69,7 +110,9 @@ class DashboardHeader extends StatelessWidget {
 }
 
 class DashboardStats extends StatelessWidget {
-  const DashboardStats({super.key});
+  final Map<String, dynamic> stats;
+
+  const DashboardStats({super.key, required this.stats});
 
   @override
   Widget build(BuildContext context) {
@@ -81,28 +124,28 @@ class DashboardStats extends StatelessWidget {
       mainAxisSpacing: 16,
       childAspectRatio: 2.0,
       padding: EdgeInsets.zero,
-      children: const [
+      children: [
         StatCard(
           title: 'Total Orders',
-          value: '156',
+          value: stats['totalOrders']?.toString() ?? '0',
           icon: FontAwesomeIcons.boxOpen,
           color: Colors.blue,
         ),
         StatCard(
           title: 'Pending Orders',
-          value: '12',
+          value: stats['pendingOrders']?.toString() ?? '0',
           icon: FontAwesomeIcons.clockRotateLeft,
           color: Colors.orange,
         ),
         StatCard(
           title: 'Completed Orders',
-          value: '144',
+          value: stats['completedOrders']?.toString() ?? '0',
           icon: FontAwesomeIcons.check,
           color: Colors.green,
         ),
         StatCard(
-          title: 'Total Revenue',
-          value: '\$2,345',
+          title: 'Total Sales',
+          value: '\$${((stats['totalSales'] as num?) ?? 0.0).toStringAsFixed(2)}',
           icon: FontAwesomeIcons.dollarSign,
           color: Colors.purple,
         ),
@@ -165,111 +208,6 @@ class StatCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class DashboardChart extends StatelessWidget {
-  const DashboardChart({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 200,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Orders Overview',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: const [
-                      FlSpot(0, 3),
-                      FlSpot(2.6, 2),
-                      FlSpot(4.9, 5),
-                      FlSpot(6.8, 3.1),
-                      FlSpot(8, 4),
-                      FlSpot(9.5, 3),
-                      FlSpot(11, 4),
-                    ],
-                    isCurved: true,
-                    color: Theme.of(context).colorScheme.primary,
-                    barWidth: 3,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class RecentOrders extends StatelessWidget {
-  const RecentOrders({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Recent Orders',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 16),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 5,
-          itemBuilder: (context, index) {
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  child: Text('#${index + 1}'),
-                ),
-                title: Text('Order #${1000 + index}'),
-                subtitle: Text('Customer ${index + 1}'),
-                trailing: Chip(
-                  label: Text(
-                    index % 2 == 0 ? 'Pending' : 'Completed',
-                    style: TextStyle(
-                      color: index % 2 == 0 ? Colors.orange : Colors.green,
-                    ),
-                  ),
-                  backgroundColor: (index % 2 == 0 ? Colors.orange : Colors.green).withOpacity(0.1),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
     );
   }
 } 
